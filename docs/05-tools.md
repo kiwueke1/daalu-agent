@@ -48,7 +48,7 @@ Tool names are exactly as registered in `core/kube_tools.py`.
 The write tools need RBAC permission to patch/delete the relevant objects; scope
 the ServiceAccount (or the kubeconfig's user) to the namespaces you want the
 agent to be able to act in. See
-[04-deployment.md §A7](04-deployment.md#a7-giving-the-agent-a-cluster-to-operate).
+[04-deployment.md §B7](04-deployment.md#b7-giving-the-agent-a-cluster-to-operate).
 
 ## Cloud — AWS, GCP, Azure (read-only)
 
