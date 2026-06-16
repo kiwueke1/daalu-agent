@@ -54,22 +54,30 @@ These are separate from Part B's prerequisites, and the exact list depends on th
 route you pick in [A2](#a2-which-approach-laptop-or-cluster).
 
 **Any route:**
-- **A Linux machine** — Ubuntu 22.04 / 24.04 preferred. This can be your **laptop**,
-  a **VM**, a **workstation**, or a **server**.
-- **An NVIDIA GPU is strongly recommended.** ~16 GB VRAM comfortably runs a 7–8B
-  model; more VRAM → bigger models. (Ollama can run CPU-only, but it's slow — fine
-  for a quick look, not for real use.)
-- **root / sudo** and **outbound internet** (to pull images + model weights).
+- **root / sudo** and **outbound internet** (to pull images + model weights). The
+  machine can be your **laptop**, a **VM**, a **workstation**, or a **server**.
 
-**Laptop / single-VM route (A3) also needs:** either nothing beyond Ollama's
-installer, or **Docker** + the **NVIDIA Container Toolkit** for the Docker-vLLM
-option.
+**Laptop / single-VM route (A3) — NVIDIA is *not* required:**
+- **OS:** Linux (Ubuntu 22.04 / 24.04 preferred) **or macOS** — Ollama ships for both.
+- **Any modern AI-capable GPU works.** ~16 GB of VRAM / unified memory comfortably
+  runs a 7–8B model; more → bigger models. Specifically:
+  - **Apple Silicon** (M1–M4 MacBook) — Ollama uses the **Metal** GPU automatically.
+    Excellent and zero-config.
+  - **NVIDIA** — used automatically (and the only option for the Docker-vLLM choice,
+    which also needs **Docker** + the **NVIDIA Container Toolkit**).
+  - **Intel Arc / AMD** (e.g. a Copilot+ laptop like the Galaxy Book5) — works, but
+    *not* through stock Ollama, which falls back to CPU on these. Use Ollama's
+    experimental **Vulkan** backend or an **IPEX-LLM** build — see the note in
+    [A3 Option 1](#a3-laptop-or-single-vm-no-kubernetes--simplest).
+  - **CPU-only** (no usable GPU) — works but slow; fine for a quick look, not real use.
 
-**k3s cluster route (A4/A5) also needs:** `helm` and `kubectl` (the script installs
-them if missing); **no pre-installed GPU driver** (the GPU Operator installs it, or
-set `DRIVER=host` to reuse one you have); and for **multi-node**, the machines must
-reach each other on the network (k3s uses TCP 6443 for the API server and a flannel
-VXLAN port — same LAN/VPC is simplest).
+**k3s cluster route (A4/A5) needs NVIDIA, plus:** a **Linux machine** (Ubuntu 22.04 /
+24.04 preferred) with an **NVIDIA GPU** (the GPU Operator and vLLM path are
+NVIDIA-only); `helm` and `kubectl` (the script installs them if missing); **no
+pre-installed GPU driver** (the GPU Operator installs it, or set `DRIVER=host` to
+reuse one you have); and for **multi-node**, the machines must reach each other on
+the network (k3s uses TCP 6443 for the API server and a flannel VXLAN port — same
+LAN/VPC is simplest).
 
 ### A2. Which approach: laptop or cluster?
 
@@ -97,7 +105,7 @@ with a working sovereign endpoint for Daalu. Pick one option.
 curl -fsSL https://ollama.com/install.sh | sh   # Linux/macOS
 ollama pull qwen2.5:14b                          # smaller box? try qwen2.5:7b
 # Ollama now serves an OpenAI-compatible API at http://localhost:11434/v1 and
-# automatically uses your NVIDIA GPU if present (CPU otherwise — slower).
+# uses your GPU automatically on Apple Silicon (Metal) and NVIDIA — CPU otherwise.
 ```
 
 Then set in Daalu's `.env`:
@@ -110,6 +118,14 @@ LLM_API_KEY=ollama
 LLM_MODEL=qwen2.5:14b
 LLM_MODEL_CLASSIFIER=qwen2.5:14b
 ```
+
+> **On an Intel Arc / AMD laptop (e.g. a Copilot+ PC like the Samsung Galaxy Book5)?**
+> Stock Ollama runs **CPU-only** on these — but the **GPU** can accelerate inference:
+> use Ollama's experimental **Vulkan** backend (`OLLAMA_VULKAN=1`, recent builds) or
+> Intel's **IPEX-LLM** Ollama build (oneAPI/SYCL). Note that the integrated **NPU**
+> (the "40–47 TOPS AI chip" Copilot+ advertises) is **not** used by Ollama today — it
+> targets Windows AI / OpenVINO workloads, not llama.cpp. The **Arc GPU** is what does
+> the LLM work. Once it's running, the endpoint and `.env` lines above are identical.
 
 **Option 2 — vLLM in Docker (NVIDIA GPU, OpenAI-compatible).** Higher throughput
 than Ollama; needs the NVIDIA Container Toolkit on the host.
