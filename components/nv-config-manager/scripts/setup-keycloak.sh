@@ -2,7 +2,7 @@
 #
 # setup-keycloak.sh — create the two Keycloak clients NV-CM go-live needs.
 #
-# Engineer chapter 64 §64.2 step 4. Idempotent: re-running updates the
+# Part of the one-time platform setup. Idempotent: re-running updates the
 # clients in place. Uses the Keycloak admin CLI (kcadm.sh), which ships in
 # the Keycloak container ("kubectl exec ... -- /opt/keycloak/bin/kcadm.sh")
 # or the keycloak-admin-cli download.
@@ -11,8 +11,8 @@
 #      grant. Its service-account is granted a realm role whose name lands
 #      in the token's "roles" claim and maps to NV-CM's RBAC *execute* role
 #      for DeployWorkflow. This is the client whose id/secret you paste onto
-#      each tenant's Integration(provider="config_manager") (§64.3 step 9:
-#      keycloak_client_id + keycloak_client_secret_ciphertext).
+#      each tenant's Integration(provider="config_manager") as
+#      keycloak_client_id + keycloak_client_secret_ciphertext.
 #   2. <UI_CLIENT_ID>   — public, standard browser OIDC flow, for the NV-CM
 #      UI at https://<slug>.cmtools.example.com (served through the hub tool proxy).
 #

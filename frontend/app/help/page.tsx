@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
  */
 
 // Update the repo URL below once the public repo name is set.
-const DOCS_BASE = "https://github.com/daalu-io/daalu/blob/main/docs";
+const DOCS_BASE = "https://github.com/kiwueke1/daalu-agent/blob/main/docs";
 const DOC_GROUPS: { title: string; links: { label: string; href: string }[] }[] = [
   {
     title: "Getting started",
@@ -250,7 +250,7 @@ function StatusSection() {
           loading={version.isLoading}
           href={
             sha && sha !== "unknown"
-              ? `https://github.com/daalu-io/daalu-automation/commit/${sha}`
+              ? `https://github.com/kiwueke1/daalu-agent/commit/${sha}`
               : undefined
           }
           icon={GitBranch}

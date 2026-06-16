@@ -4,8 +4,6 @@ Values are written to a temp file the HelmRunner passes via ``-f``. We set
 the multi-tenant-safe knobs (shared GatewayClass, unique base hostname,
 per-tenant namespace) and toggle components from the row's ``components``
 map. Image registry is overridden to daalu's Harbor mirror.
-
-See docs/design/nv-config-manager-integration.md §5.3, §5.4.
 """
 
 from __future__ import annotations
@@ -66,7 +64,7 @@ _COMPONENT_TOGGLES: dict[str, str] = {
     "ui": "ui",
 }
 
-# Default profile (the "Lean" config-&-change set from §6/§7).
+# Default profile (the "Lean" config-&-change set).
 DEFAULT_COMPONENTS: dict[str, bool] = {
     "render": True,
     "configStore": True,
@@ -188,7 +186,7 @@ def render_values(
             "cors": {"allowOrigins": [f"https://{h}" for h in _human_hosts]},
         },
         # OIDC: trust daalu's Keycloak so the hub's machine JWTs are
-        # accepted on svc-* endpoints (§8).
+        # accepted on svc-* endpoints.
         "oidc": {
             "enabled": bool(settings.keycloak_issuer_url),
             "issuerUrl": settings.keycloak_issuer_url,
@@ -295,7 +293,7 @@ def render_values(
     # registry.example.com/nvidia placeholders are NOT pullable, so this is
     # mandatory for a real install; left unset only for a dev/local install
     # that supplies its own images another way. Tags are inherited from the
-    # chart defaults (we set repository only). See engineer chapter 64 §64.2.
+    # chart defaults (we set repository only).
     if harbor_registry:
         reg = harbor_registry.rstrip("/")
         images = values.setdefault("global", {}).setdefault("images", {})

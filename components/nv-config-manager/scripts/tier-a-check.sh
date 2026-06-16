@@ -2,7 +2,7 @@
 #
 # tier-a-check.sh — verify the Tier-A cluster-scoped singletons exist.
 #
-# Engineer chapter 64 §64.2 step 1. Read-only. This is the operator-side
+# Part of the one-time platform setup. Read-only. This is the operator-side
 # mirror of the controller's host_cluster_ready precheck
 # (src/daalu_automation/config_manager_controller/prechecks.py) — run it
 # against the *target* host cluster before provisioning a tenant so the

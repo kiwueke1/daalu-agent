@@ -5,8 +5,6 @@ Mirrors ``core/sot/nautobot_provisioning.provision_via_controller``: mints a
 controller, polls until ``active``, and returns the resolved per-component
 URLs the onboarding route writes into the
 ``Integration(provider="config_manager")`` row.
-
-See docs/design/nv-config-manager-integration.md §7.
 """
 
 from __future__ import annotations

@@ -8,8 +8,7 @@ cluster reached via WireGuard (``target_cluster_tunnel_id IS NOT
 NULL``).
 
 Replaces the pre-2026 shared-Nautobot model where every tenant got
-an ObjectPermission slice of one shared instance — see
-[[sot_nautobot_only]] for the architectural pivot context.
+an ObjectPermission slice of one shared instance.
 
 The hostname + admin token written here are the same values the
 tenant's ``Integration(provider="nautobot")`` row stores; the

@@ -2,7 +2,7 @@
 
 Before the reconcile loop runs ``helm upgrade --install`` of the NV-CM
 chart, confirm the target cluster has the cluster-scoped singletons the
-chart's CRs depend on (engineer chapter 64 §64.2 step 1):
+chart's CRs depend on (installed once, out-of-band):
 
 * **Envoy Gateway** — the shared ``GatewayClass`` (``envoy-gateway``) the
   chart references with ``createGatewayClass=false``.
@@ -37,7 +37,7 @@ logger = structlog.get_logger(__name__)
 
 # CRD name → human label used in the "missing …" error. These are the
 # Tier-A operators' CRDs; the operators themselves are installed once,
-# out-of-band (§64.2 step 1).
+# out-of-band.
 REQUIRED_CRDS: dict[str, str] = {
     "gatewayclasses.gateway.networking.k8s.io": "Envoy Gateway (Gateway API CRDs)",
     "certificates.cert-manager.io": "cert-manager",

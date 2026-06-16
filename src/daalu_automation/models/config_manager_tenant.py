@@ -11,8 +11,6 @@ surface (service URLs + Keycloak client) is the tenant's
 ``Integration(provider="config_manager")`` row, written from this row
 once provisioning reaches ``active``; this table is the operator-side
 materialisation state driven by ``config_manager_controller``.
-
-See docs/design/nv-config-manager-integration.md §6, §10.
 """
 
 from __future__ import annotations

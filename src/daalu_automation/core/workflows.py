@@ -6,8 +6,8 @@ verify rollout → notify Slack) by composing primitives.
 
 For Phase-1 we keep this in-process so the same code path runs in tests
 and in the worker. A future Temporal-backed implementation can swap the
-runner without changing the workflow signatures (mirroring muse's
-``temporal/`` migration).
+runner without changing the workflow signatures (a ``temporal/``-style
+migration).
 """
 
 from __future__ import annotations

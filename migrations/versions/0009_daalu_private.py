@@ -16,8 +16,6 @@ Three new columns on ``tenants``:
   tenant-DB router resolves tenant-scoped reads/writes to this URL
   instead of the hub DB. Token hash for the same reason as
   ingest_api_key_hash: cleartext never lands in the DB.
-
-See ``docs/design/daalu-private.md`` for the architecture.
 """
 
 from __future__ import annotations

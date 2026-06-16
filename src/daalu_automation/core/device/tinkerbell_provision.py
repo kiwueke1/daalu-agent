@@ -9,8 +9,6 @@ The spec carries explicit CR bodies (built from the shared Nautobot SoT in
 Increment 6, or by an agent/wizard). The executor applies them in order:
 BMC Secret → Rufio Machine → Hardware → Template → Workflow, then a Rufio
 power Job (PXE-once + power-on), and watches the Workflow to STATE_SUCCESS.
-
-See docs/design/nv-config-manager-integration.md §17, §18.
 """
 
 from __future__ import annotations

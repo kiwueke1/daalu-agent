@@ -5,8 +5,7 @@ by a granted provider). The gateway selects an ``enabled`` pool that serves
 the requested model and proxies to its ``upstream_url`` — replacing the
 single static ``settings.daalu_hosted_upstream_url``.
 
-Built multi-provider from day one (see
-``docs/plans/nvidia-ai-factory/13-gpu-sharing-and-multi-tenant-marketplace.md``):
+Built multi-provider from day one:
 *N* providers may each register a pool, though policy grants
 ``Tenant.is_gpu_provider`` to exactly one tenant (the operator) today. The
 ``provider_tenant_id`` is who gets credited in ``gpu_revenue_share`` for

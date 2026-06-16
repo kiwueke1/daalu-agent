@@ -11,8 +11,6 @@ Endpoints:
 * ``POST /tenants/{tenant_id}`` — get-or-create the row + start provisioning.
 * ``GET  /tenants/{tenant_id}`` — read state + (when active) the resolved URLs.
 * ``DELETE /tenants/{tenant_id}`` — schedule teardown (helm uninstall).
-
-See docs/design/nv-config-manager-integration.md §6.4.
 """
 
 from __future__ import annotations
@@ -399,7 +397,7 @@ async def _reconcile_one(db: AsyncSession, row: ConfigManagerTenant) -> None:
 
         # Tier-A precheck: refuse to install into a host cluster missing
         # the shared GatewayClass / cert-manager / CNPG. Surfaces a precise
-        # "missing …" error instead of an opaque helm failure (§64.2/§64.6).
+        # "missing …" error instead of an opaque helm failure.
         if not settings.config_manager_skip_host_precheck:
             ready, missing = await prechecks.host_cluster_ready(kubeconfig)
             if not ready:

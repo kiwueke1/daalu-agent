@@ -10,8 +10,6 @@ Pure and side-effect free so it can be unit-tested without a cluster. The
 Deployer is *driven* (and the few Daalu-specific Helm knobs the upstream
 config can't express — shared GatewayClass, skipping the NodePort gateway
 patch — are applied) in :mod:`.deployer_runner`.
-
-See docs/design/nv-config-manager-integration.md and engineer chapter 64.
 """
 
 from __future__ import annotations

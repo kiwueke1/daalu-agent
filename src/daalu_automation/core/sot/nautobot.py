@@ -96,8 +96,7 @@ async def _load_credentials(
     Prefers the **shared NV-CM-bundled Nautobot** when the tenant has a
     ``config_manager`` integration carrying ``nautobot_url`` +
     ``nautobot_token_ciphertext`` — that one Nautobot is the source of
-    truth for both network devices and servers (see
-    docs/design/nv-config-manager-integration.md §17). Falls back to the
+    truth for both network devices and servers. Falls back to the
     standalone ``nautobot`` integration (BYO / legacy nautobot_controller).
 
     ``proxy_url`` is resolved from the chosen integration's

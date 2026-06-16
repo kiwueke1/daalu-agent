@@ -8,7 +8,7 @@ expiry, so a burst of executor calls doesn't hammer Keycloak.
 
 Per-tenant NV-CM stacks each trust the same daalu Keycloak issuer; the
 JWT's ``roles`` claim maps to NV-CM RBAC (grant the hub an execute role
-for ``DeployWorkflow``). See docs/design/nv-config-manager-integration.md §8.
+for ``DeployWorkflow``).
 
 This helper is intentionally dependency-light (httpx + settings) and is
 imported by ``core/configmgr`` only — adding it changes no existing

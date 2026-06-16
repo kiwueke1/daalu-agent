@@ -8,8 +8,7 @@ owns the serving card earned for it:
     provider_credit_usd = gross_usd * (1 - platform_take_rate)
 
 With a single provider that is also the platform owner the two net out, but
-the ledger exists so a second granted provider needs no migration — see
-``docs/plans/nvidia-ai-factory/13-gpu-sharing-and-multi-tenant-marketplace.md`` §5.
+the ledger exists so a second granted provider needs no migration.
 
 Never re-priced: like ``usage_events``, the dollar amounts are frozen at
 write-time against the rates and take-rate then in force.

@@ -124,8 +124,7 @@ def is_controller_enabled() -> bool:
     The recommended hosted-Nautobot path post-2026-05. When this is
     on, the provision route routes to the controller and the
     customer gets a fully isolated Nautobot stack (their own
-    Postgres, their own admin user, their own URL). See engineer
-    chapter 60.
+    Postgres, their own admin user, their own URL).
     """
     s = get_settings()
     return bool(s.nautobot_controller_url)

@@ -9,8 +9,7 @@ tasks) the Tinkerbell executor applies.
 
 CR shapes mirror the lower-level ``daalu`` project's
 ``tinkerbell_installer`` (``tinkerbell.org/v1alpha1`` Hardware,
-``bmc.tinkerbell.org/v1alpha1`` Machine/Job). See
-docs/design/nv-config-manager-integration.md §17.
+``bmc.tinkerbell.org/v1alpha1`` Machine/Job).
 """
 
 from __future__ import annotations

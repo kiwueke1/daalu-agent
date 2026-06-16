@@ -15,8 +15,6 @@ The NV-CM connection (service URLs + Keycloak client) and the device's
 Nautobot UUID don't fit the SSH-shaped ``Credentials`` fields, so
 ``resolve_credentials`` smuggles them through ``Credentials.extra``
 (``nvcm_conn`` / ``device_uuid`` / ``filename``).
-
-See docs/design/nv-config-manager-integration.md §9.
 """
 
 from __future__ import annotations
@@ -95,7 +93,7 @@ class ConfigManagerExecutor:
         """Observed state for config_manager devices.
 
         NV-CM owns drift detection (its backup workflow + Config Store
-        diff), and surfaces it to us over NATS (event bridge, §9.3) rather
+        diff), and surfaces it to us over NATS rather
         than us polling the device. For the synchronous reconciler path we
         therefore report the intended hint unchanged (no daalu-side drift),
         leaving NV-CM as the authority. Returns an empty NetworkFacts when

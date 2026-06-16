@@ -481,7 +481,7 @@ async def _resolve_plan(
     # override the SKU's prefers_local heuristic and always include
     # LOCAL when reachable, because the only legal cascade for coding
     # is local/sovereign — falling through to cloud would break the
-    # privacy promise in book-customer §43.
+    # privacy promise.
     want_local = coding_constrained or (allows_local(policy) and prefers_local(policy, tier))
     local_direct_ok = bool(settings.llm_local_base_url) and await _local_is_healthy()
     local_via_gateway_ok = bool(settings.daalu_hosted_gateway_url) and tenant_cfg.daalu_hosted_enabled

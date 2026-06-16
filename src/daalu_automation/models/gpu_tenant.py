@@ -13,8 +13,7 @@ which the provision route writes once this row reaches ``active`` — at
 which point ``core/llm.py`` routes LLM calls to the GPU automatically.
 
 We do NOT reimplement vLLM serving; the controller applies the existing
-``deploy/k8s/gpu`` manifests onto the target cluster. See
-``docs/plans/2026-06-02-gpu-onboarding.md``.
+``deploy/k8s/gpu`` manifests onto the target cluster.
 """
 
 from __future__ import annotations
@@ -117,7 +116,6 @@ class GpuTenant(UUIDPrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     # being the owner's private SOVEREIGN endpoint. May only be true when the
     # owning tenant holds ``Tenant.is_gpu_provider`` — enforced in the
     # provision path AND by a DB trigger (Postgres CHECK can't subquery).
-    # See docs/plans/nvidia-ai-factory/13-gpu-sharing-and-multi-tenant-marketplace.md.
     shared: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # The resolved endpoint the router will call once active — e.g.

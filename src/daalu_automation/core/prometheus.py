@@ -1,8 +1,8 @@
 """Thin async Prometheus client for the native AI-factory GPU UI.
 
 The hub renders GPU metrics itself (no Grafana) by querying
-**kube-prometheus-stack's Prometheus** — NOT Thanos, which has no stores
-([[agent_observability_data_plane]]). This module is a small wrapper over the
+**kube-prometheus-stack's Prometheus** — NOT Thanos, which has no stores.
+This module is a small wrapper over the
 Prometheus HTTP API (`/api/v1/query`, `/api/v1/query_range`) plus helpers that
 build **tenant-scoped** DCGM selectors so a tenant can only ever read its own
 series (the label injection happens server-side, never from the browser).
@@ -121,7 +121,7 @@ class PrometheusClient:
         ask the question that actually matters — "is a target that emits DCGM
         GPU-temp series up?" — by intersecting ``up`` with the DCGM metric on
         ``(job, instance)``. This stays true regardless of how the exporter is
-        wired up ([[agent_observability_data_plane]]).
+        wired up.
         """
         v = await self.query_scalar(
             "max(up and on (job, instance) DCGM_FI_DEV_GPU_TEMP)", default=0.0

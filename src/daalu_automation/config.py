@@ -1,8 +1,8 @@
 """Application configuration loaded from environment variables / .env file.
 
-Mirrors the layered settings pattern from muse so the two platforms can
-share infrastructure (same Postgres / Redis / Rook-Ceph / Anthropic account)
-just by pointing them at the same secret material.
+Uses a layered settings pattern so a deployment can share infrastructure
+(same Postgres / Redis / Rook-Ceph / Anthropic account) just by pointing
+components at the same secret material.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Pre-multi-tenant rows are stamped with this fixed UUID so single-operator
 # installs keep working before auth is wired. Do NOT change once any row
-# references it — mirrors muse's DEFAULT_TENANT_ID convention.
+# references it.
 DEFAULT_TENANT_ID: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000010")
 
 # The single local operator in single-tenant (open-source) mode. When
@@ -153,10 +153,10 @@ class Settings(BaseSettings):
     # OpenAI-compatible base URL for the vLLM Service. Empty disables the
     # local-first path — routers fall through to llm_api_key /
     # anthropic_api_key. In production, with the workload cluster federated
-    # via daalu-edge:
-    #   http://10.200.0.2:8000/v1
+    # via the WireGuard mesh:
+    #   e.g. http://<inference-host>:8000/v1
     # If daalu-api runs in the same cluster as vLLM, the in-cluster DNS works:
-    #   http://llm-classifier.daalu.svc.cluster.local/v1
+    #   e.g. http://<service>.<namespace>.svc.cluster.local/v1
     # In local dev you can port-forward and set http://localhost:8000/v1.
     llm_local_base_url: str = ""
     # vLLM endpoints don't enforce auth by default; this is sent only if set.
@@ -188,7 +188,7 @@ class Settings(BaseSettings):
     # NetworkPolicy allows it.
     daalu_hosted_upstream_url: str = ""
     daalu_hosted_upstream_api_key: str = ""
-    # In the hub: http://inference-gateway.daalu-automation.svc.cluster.local
+    # In the hub: e.g. http://<service>.<namespace>.svc.cluster.local
     # ``daalu-api`` uses this URL to reach the gateway. When the gateway
     # IS the receiving service it ignores this; only the caller cares.
     daalu_hosted_gateway_url: str = ""
@@ -209,12 +209,12 @@ class Settings(BaseSettings):
     platform_take_rate: float = 0.0
 
     # ── Observability / Prometheus (AI Factory UI) ───────────────────────────
-    # The hub queries kube-prometheus-stack's Prometheus directly for the
-    # native GPU-metrics UI (docs/plans/nvidia-ai-factory/02-dcgm-observability.md).
-    # NOT Thanos — it has no stores ([[agent_observability_data_plane]]). Empty
-    # disables the AI-factory metrics endpoints gracefully (they report
+    # The hub queries the cluster's Prometheus directly for the native
+    # GPU-metrics UI. Point this at the Prometheus that actually has the
+    # series (not a Thanos query layer with no stores). Empty disables the
+    # AI-factory metrics endpoints gracefully (they report
     # "metrics unavailable"). In-cluster default form:
-    #   http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+    #   e.g. http://<prometheus-service>.<namespace>.svc.cluster.local:9090
     prometheus_base_url: str = ""
     prometheus_query_timeout_s: float = 8.0
     # Cache window for an instant query so UI polling doesn't hammer Prometheus.
@@ -233,7 +233,7 @@ class Settings(BaseSettings):
     # ── AIPerf (load-test / SLO benchmarking) ────────────────────────────────
     # AIPerf (ai-dynamo/aiperf) is a pure OpenAI-compatible load generator that
     # produces the TTFT/ITL/throughput-vs-concurrency curve behind the pricing
-    # SLOs (docs/plans/nvidia-ai-factory/04-aiperf.md). The AI-factory UI lets a
+    # SLOs. The AI-factory UI lets a
     # site **superuser** (any target) or a **GPU owner/provider** (their own
     # endpoint only) kick a sweep; the gpu-controller runs it as a one-shot
     # Job on the OPERATOR cluster. OFF by default because a full-concurrency
@@ -268,7 +268,7 @@ class Settings(BaseSettings):
     # ── NVSentinel (GPU fault auto-remediation) ──────────────────────────────
     # NVSentinel watches the DCGM/XID/ECC stream and (when promoted out of
     # observe mode) auto-cordons/drains/reboots a faulted GPU node — the BYO-GPU
-    # SLA play (docs/plans/nvidia-ai-factory/03-nvsentinel-resiliency.md). It is
+    # SLA play. It is
     # Helm-installed cluster-side (deploy/k8s/gpu/09-nvsentinel/) and exports its
     # own remediation metrics; the hub only READS them to render the AI-factory
     # Reliability panel. This is the Prometheus job name NVSentinel is scraped
@@ -278,7 +278,7 @@ class Settings(BaseSettings):
 
     # ── cuda-checkpoint (CUDA checkpoint/restore) — LEGAL GATE ───────────────
     # cuda-checkpoint is PROPRIETARY NVIDIA software (NVIDIA EULA), an explicit
-    # exception to the FOSS rule ([[foss_inference_pivot]]). It is free to use
+    # exception to the FOSS-only rule. It is free to use
     # but NOT redistributable without **legal sign-off** — see
     # deploy/k8s/gpu/09-nvsentinel/CUDA-CHECKPOINT-LEGAL.md. Hard-gated OFF: no
     # checkpoint/restore feature may run until this is deliberately enabled
@@ -295,7 +295,7 @@ class Settings(BaseSettings):
     # catalog ids from ``core.model_catalog`` whose vLLM is *actually
     # deployed* on a present GPU. The UI greys out catalog entries not in
     # this list and ``create_session`` rejects a non-enabled pick with 422.
-    # The agentic Qwen3-Coder-30B-A3B serves on the 48 GB RTX 6000 Ada (cp03).
+    # The agentic Qwen3-Coder-30B-A3B serves on a GPU node.
     coding_models_enabled: list[str] = ["qwen3-coder-30b-a3b"]
     # The catalog id pre-selected in the UI and used when a request omits
     # ``model``. Must also appear in ``coding_models_enabled`` in prod.
@@ -307,7 +307,7 @@ class Settings(BaseSettings):
     # (the general-router hosted tier + workspace-availability flag) so
     # wiring the coder upstream never disturbs daalu-api's other LLM
     # routing — the same scoping the workspace-controller uses for the IDE
-    # path. Prod: ``http://10.200.0.2:8000/v1`` (coder vLLM over the WG
+    # path. e.g. ``http://<inference-host>:8000/v1`` (coder vLLM over the WG
     # tunnel). When empty the coding endpoint falls back to the gateway,
     # then to ``llm_local_base_url``.
     coding_local_base_url: str = ""
@@ -316,20 +316,20 @@ class Settings(BaseSettings):
     # In-cluster URL of the nautobot-controller service. Empty disables
     # the hosted-Nautobot provisioning path (the wizard hides the
     # "Provision a hosted Nautobot" tile and the customer falls back to
-    # BYO). See engineer chapter 60.
+    # BYO).
     nautobot_controller_url: str = ""
 
     # ── Config-management plane: NV-CM (network) + Tinkerbell (servers) ──────
     # In-cluster URL of the config-manager-controller service, which
     # provisions per-tenant NVIDIA Config Manager stacks via Helm over the
     # WireGuard tunnel. Empty disables the network-plane provisioning
-    # wizard. See docs/design/nv-config-manager-integration.md §6/§7.
+    # wizard.
     config_manager_controller_url: str = ""
     # In-cluster URL of the gpu-controller service, which deploys the
     # vLLM GPU stack (deploy/k8s/gpu/*) onto the operator's or a joined
     # customer's cluster over the WireGuard tunnel and registers it as
     # the tenant's SOVEREIGN inference tier. Empty disables the GPU
-    # onboarding wizard. See docs/plans/2026-06-02-gpu-onboarding.md.
+    # onboarding wizard.
     gpu_controller_url: str = ""
     # Keycloak issuer the hub trusts and mints machine tokens against for
     # NV-CM's svc-* (JWT-only) endpoints, e.g.
@@ -382,8 +382,8 @@ class Settings(BaseSettings):
     # form, so a logged-in operator already holds a Keycloak session and the
     # "Open in Nautobot/NV-CM" deep links are seamless (no second prompt).
     # ``password`` keeps the legacy local login (rollback / dev). The cutover
-    # is a single setting flip on the daalu-api Deployment. See engineer book
-    # 10-security/59 (Keycloak hub SSO). Identity stays daalu-owned (User row carries
+    # is a single setting flip on the daalu-api Deployment. Identity
+    # stays daalu-owned (User row carries
     # tenant_id/is_admin); Keycloak is only the credential + SSO authority.
     auth_mode: Literal["password", "oidc"] = "password"
     # Self-service local signup. When true, visitors can create a local
@@ -487,13 +487,12 @@ class Settings(BaseSettings):
     # namespace before helm, breaking the secret-assembler pre-install-hook
     # deadlock) instead of the legacy bare ``helm upgrade --install``. Default
     # False so the switch is opt-in per environment; flip True once the host
-    # cluster's Harbor mirror + Tier-A singletons are in place. See engineer
-    # chapter 64 and docs/design/nv-config-manager-integration.md.
+    # cluster's Harbor mirror + Tier-A singletons are in place.
     config_manager_use_deployer: bool = False
     # Skip the Tier-A ``host_cluster_ready`` precheck (Envoy Gateway /
     # cert-manager / CNPG must be present before a tenant install). Leave
     # False in production; set True only for dev clusters where you
-    # knowingly accept a partial Tier-A. See engineer chapter 64 §64.2/§64.6.
+    # knowingly accept a partial Tier-A.
     config_manager_skip_host_precheck: bool = False
     # Anthropic wholesale rates (May 2026 list pricing — Sonnet 4.6).
     # Used to value externally-bought tokens; not the price we *charge*

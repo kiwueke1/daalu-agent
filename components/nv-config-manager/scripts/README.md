@@ -1,16 +1,15 @@
 # Config-manager go-live operator scripts
 
-Helper scripts for the **one-time platform setup** in engineer chapter
-[`64-config-manager-go-live.md`](../../../docs/book-engineer/08-deployment-and-cicd/64-config-manager-go-live.md)
-§64.2. They are non-destructive and idempotent — safe to re-run. None of
-them are wired into CI or ArgoCD; an operator runs them by hand against
-real infra (a live host cluster, Harbor, Cloudflare, Keycloak).
+Helper scripts for the **one-time platform setup**. They are
+non-destructive and idempotent — safe to re-run. None of them are wired
+into CI or ArgoCD; an operator runs them by hand against real infra (a
+live host cluster, Harbor, Cloudflare, Keycloak).
 
-The in-repo code blockers from §64.6 are now closed (controller CLI +
-image + manifests + ArgoCD app + prechecks); these scripts cover the live
+The in-repo code blockers are now closed (controller CLI + image +
+manifests + ArgoCD app + prechecks); these scripts cover the live
 external systems that the dev environment can't reach.
 
-| Step (§64.2) | Script | What it does |
+| Step | Script | What it does |
 |---|---|---|
 | 1. Tier-A singletons | `tier-a-check.sh` | Verifies Envoy Gateway / cert-manager / CNPG are installed (read-only). |
 | 2. Mirror images | `mirror-images.sh` | Pulls each NV-CM image once into a local cache and pushes to Harbor. |
@@ -25,7 +24,7 @@ mirror-images.sh           # → then set CONFIG_MANAGER_HARBOR_REGISTRY=<HARBOR
 dns-wildcard.sh            # → certs for *.<slug>.host.example.com can now issue
 setup-keycloak.sh          # → set KEYCLOAK_ISSUER_URL / KEYCLOAK_TOKEN_AUDIENCE,
                            #   and paste keycloak_client_id/secret onto each
-                           #   tenant Integration (§64.3 step 9)
+                           #   tenant Integration
 ```
 
 All three hub settings live in the `daalu-automation-secrets` Secret and

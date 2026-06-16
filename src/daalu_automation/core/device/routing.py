@@ -1,8 +1,7 @@
 """Transport routing — pick the executor transport for a device + operation.
 
 Single source of truth for "which substrate handles this change", per the
-unified responsibility matrix (docs/design/nv-config-manager-integration.md
-§20). Default behaviour (no feature flags) is exactly today's: each device
+unified responsibility matrix. Default behaviour (no feature flags) is exactly today's: each device
 keeps its native ``transport``. Flags only *redirect* specific classes:
 
 * ``config_manager_enabled`` → network-switch **config** goes to NV-CM.

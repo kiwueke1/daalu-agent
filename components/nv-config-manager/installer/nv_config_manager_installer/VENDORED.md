@@ -10,7 +10,6 @@ Daalu's `config_manager_controller` drives the upstream `Deployer` directly
 secrets (`redis-password`, `nautobot-token`, `device-creds`, `cluster-*-app`,
 …) that are only minted later in the same release. The `Deployer` pre-creates
 those secrets (and the namespace) *before* helm runs, breaking the deadlock.
-See `docs/design/nv-config-manager-integration.md` and engineer chapter 64.
 
 ## What was changed vs upstream
 
@@ -27,7 +26,7 @@ See `docs/design/nv-config-manager-integration.md` and engineer chapter 64.
 
 ## Upstream source
 
-- Repo: `nvidia-tools/nv-config-manager` (NVIDIA, Apache-2.0)
+- Repo: `NVIDIA/nv-config-manager` (NVIDIA, Apache-2.0)
 - Path: `installer/src/nv_config_manager_installer/`
 - Matches vendored chart: `deploy/charts/nv-config-manager-1.2.2-rc.23`
 

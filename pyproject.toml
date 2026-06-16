@@ -34,7 +34,7 @@ dependencies = [
     "redis>=5.0.4",
     # LLM clients — both Anthropic (primary) and an OpenAI-compatible
     # fallback so operators can point at DeepSeek/Together/etc. via
-    # LLM_BASE_URL without code changes (mirrors muse's setup).
+    # LLM_BASE_URL without code changes.
     "anthropic>=0.34.0",
     "openai>=1.30.0",
     # Object storage (MinIO / S3 / Rook-Ceph RGW)
@@ -57,7 +57,7 @@ dependencies = [
     # NATS JetStream client — the event bridge subscribes to a per-tenant
     # NVIDIA Config Manager stack's NATS subjects (workflow results, device
     # / Nautobot change) over the WireGuard tunnel and republishes them onto
-    # the hub's Redis event bus. See docs/design/nv-config-manager-integration.md §9.3.
+    # the hub's Redis event bus.
     "nats-py>=2.6.0",
     # Cloud SDKs — the alert chat's read tools span AWS / GCP / Azure
     # so the agent can pull instance state, logs and metrics from any

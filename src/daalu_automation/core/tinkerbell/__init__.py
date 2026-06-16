@@ -10,8 +10,6 @@ CRDs used (verified in
 ``daalu/src/daalu/bootstrap/mgmt/tinkerbell_installer.py``):
 * ``tinkerbell.org/v1alpha1`` — Hardware, Template, Workflow
 * ``bmc.tinkerbell.org/v1alpha1`` — Machine, Job (Rufio BMC power/boot)
-
-See docs/design/nv-config-manager-integration.md §14–§18.
 """
 
 from __future__ import annotations

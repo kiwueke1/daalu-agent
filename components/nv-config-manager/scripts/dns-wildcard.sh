@@ -2,13 +2,13 @@
 #
 # dns-wildcard.sh — point *.host.example.com at the host cluster's gateway LB.
 #
-# Engineer chapter 64 §64.2 step 3. Per-tenant hostnames are
-# <slug>.host.example.com and svc-*.<slug>.host.example.com, so a single wildcard
-# A record (*.host.example.com) covers them all. Idempotent: updates the record
-# in place if it already exists.
+# Per-tenant hostnames are <slug>.host.example.com and
+# svc-*.<slug>.host.example.com, so a single wildcard A record
+# (*.host.example.com) covers them all. Idempotent: updates the record in
+# place if it already exists.
 #
-# daalu.io is Cloudflare-hosted (zone 71ea937e7341d5d1777e585641faae56).
-# Create a scoped API token (Zone:DNS:Edit on daalu.io) and pass it in.
+# If your zone is Cloudflare-hosted, create a scoped API token
+# (Zone:DNS:Edit on your zone) and pass it in, along with the zone id.
 #
 #   Usage:
 #     CF_API_TOKEN=... GATEWAY_IP=203.0.113.10 ./dns-wildcard.sh
@@ -20,9 +20,9 @@
 #
 set -euo pipefail
 
-CF_API_TOKEN="${CF_API_TOKEN:?set CF_API_TOKEN (Zone:DNS:Edit on daalu.io)}"
+CF_API_TOKEN="${CF_API_TOKEN:?set CF_API_TOKEN (Zone:DNS:Edit on your zone)}"
 GATEWAY_IP="${GATEWAY_IP:?set GATEWAY_IP (the gateway LoadBalancer IP)}"
-ZONE_ID="${ZONE_ID:-71ea937e7341d5d1777e585641faae56}"
+ZONE_ID="${ZONE_ID:?set ZONE_ID to your Cloudflare zone id}"
 NAME="${NAME:-*.host.example.com}"
 PROXIED="${PROXIED:-false}"   # wildcard + cert-manager DNS-01 → keep DNS-only
 API="https://api.cloudflare.com/client/v4"

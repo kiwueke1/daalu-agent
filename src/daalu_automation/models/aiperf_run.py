@@ -2,8 +2,8 @@
 
 AIPerf (``ai-dynamo/aiperf``, Apache-2.0) is a pure OpenAI-compatible load
 generator — it drives a concurrency sweep against an endpoint and reports
-TTFT / ITL / throughput vs concurrency (the SLO curve behind the pricing model;
-see ``docs/plans/nvidia-ai-factory/04-aiperf.md``).
+TTFT / ITL / throughput vs concurrency (the SLO curve behind the pricing
+model).
 
 A sweep *is* load, and it is a **site-wide** measurement tool (it benchmarks the
 operator's shared serving stack, not one tenant's view), so unlike the per-tenant

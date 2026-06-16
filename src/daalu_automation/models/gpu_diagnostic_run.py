@@ -4,7 +4,7 @@ Three kinds:
 
 * ``dcgmi_diag``           — ``dcgmi diag -r {level}`` (NVVS) on the card.
 * ``nccl_test``            — collective bandwidth/latency (multi-GPU only).
-* ``observability_validate`` — the doc 02 §4A read-only checklist (run inline
+* ``observability_validate`` — a read-only checklist (run inline
   by daalu-api against Prometheus; no on-GPU exec).
 
 ``dcgmi_diag`` / ``nccl_test`` need to exec on the GPU node, so daalu-api writes

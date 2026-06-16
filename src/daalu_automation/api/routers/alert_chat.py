@@ -255,8 +255,7 @@ self-Q&A — the UI does not render that and it clutters the chat.
   failed with `Forbidden` / 403 / RBAC error: re-propose the SAME
   patch_resource in this plan. The operator likely widened the
   remediator's ClusterRole between then and now (that's a common
-  fix path — see daalu-remediator-write in
-  docs/user-guide-integrations.md §16.1). Also add an [operator]
+  fix path — the daalu-remediator-write role). Also add an [operator]
   step at the END of the plan with the kubectl command to widen
   the ClusterRole on the customer cluster, so the operator has
   the one-shot fix in hand if Approve 403s again. Do not silently

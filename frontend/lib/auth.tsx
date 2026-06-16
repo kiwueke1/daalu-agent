@@ -1,8 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
-import { api, type CurrentUser, UnauthorizedError } from "@/lib/api";
+import { createContext, useContext } from "react";
+import { type CurrentUser } from "@/lib/api";
 
 interface AuthContextValue {
   user: CurrentUser | null;
@@ -14,56 +13,34 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// This build ships with LOCAL_NO_AUTH=true and no auth router, so there is
+// no /auth/* endpoint to talk to. We provide a static local operator and
+// make all auth actions harmless no-ops rather than calling removed routes.
+const LOCAL_USER: CurrentUser = {
+  id: "00000000-0000-0000-0000-000000000011",
+  email: "operator@localhost",
+  full_name: "Local Operator",
+  is_admin: true,
+  is_superuser: true,
+  tenant_id: "00000000-0000-0000-0000-000000000010",
+  preferences: {},
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const pathname = usePathname();
+  // No network call: auth is disabled in this build.
+  const user = LOCAL_USER;
+  const loading = false;
 
   async function refresh() {
-    try {
-      const me = await api.auth.me();
-      setUser(me);
-    } catch (err) {
-      setUser(null);
-      // /api.ts already redirects on 401; we just clear local state.
-      if (!(err instanceof UnauthorizedError)) {
-        console.error("auth.refresh", err);
-      }
-    } finally {
-      setLoading(false);
-    }
+    // No-op: there is no /auth/me endpoint in this build.
   }
 
-  useEffect(() => {
-    // The login + accept-invite pages handle their own auth state.
-    // accept-invite is opened by users without an account yet, so
-    // probing /auth/me there would 401 → bounce to /login → break
-    // the redemption flow.
-    if (
-      pathname === "/login"
-      || pathname.startsWith("/accept-invite")
-      || pathname === "/signup"
-      || pathname.startsWith("/verify-email")
-    ) {
-      setLoading(false);
-      return;
-    }
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
-
-  async function login(email: string, password: string) {
-    const res = await api.auth.login(email, password);
-    setUser(res.user);
+  async function login() {
+    // No-op: there is no /auth/login endpoint in this build.
   }
 
   async function logout() {
-    setUser(null);
-    // Full-page navigation to the backend logout so it can clear the
-    // session cookie and, in SSO mode, end the Keycloak session
-    // (RP-initiated logout) before landing back on /login. Works in
-    // password mode too (it just clears the cookie and redirects).
-    window.location.href = "/api/v1/auth/oidc/logout";
+    // No-op: there is no /auth logout endpoint in this build.
   }
 
   return (

@@ -6,8 +6,7 @@ CRDs installed). Two callers:
 
 * the per-integration health beat (``workers.integration_health``), so a
   broken tinkerbell wiring flips the Integrations-UI badge to ``error``
-  within a tick — failures surface at *onboarding*, not at execute time
-  (design open-question #5, engineer chapter 64 §64.6).
+  within a tick — failures surface at *onboarding*, not at execute time.
 * ``change_proposals.execute_provision`` as a fail-fast guard before it
   drives a ``provision_op``.
 """

@@ -1,7 +1,7 @@
 """Celery app + beat schedule.
 
 Importing this module also imports every module package so module-level
-``@celery_app.task`` decorators take effect. Mirrors muse's pattern.
+``@celery_app.task`` decorators take effect. A common pattern.
 """
 
 from __future__ import annotations

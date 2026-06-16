@@ -7,8 +7,6 @@ Manager (NV-CM) stacks (network config-management plane), mirroring
 via Tinkerbell (observed-state-compared by the gate rather than
 render-drift-checked).
 
-See docs/design/nv-config-manager-integration.md §10, §18.
-
 Revision ID: 0019_config_manager_tenants
 Revises: 0018_nautobot_tenants
 Create Date: 2026-05-29

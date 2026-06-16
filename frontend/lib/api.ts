@@ -27,19 +27,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
   });
   if (res.status === 401) {
-    // /login, /accept-invite, /signup and /verify-email handle their own auth
-    // lifecycle. Bouncing them to /login on a 401 would break those flows
-    // (invite redemption + self-service signup are used by logged-out users).
-    if (
-      typeof window !== "undefined"
-      && !window.location.pathname.startsWith("/login")
-      && !window.location.pathname.startsWith("/accept-invite")
-      && !window.location.pathname.startsWith("/signup")
-      && !window.location.pathname.startsWith("/verify-email")
-    ) {
-      const next = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.replace(`/login?next=${next}`);
-    }
+    // This build ships with auth disabled and no /login route, so we never
+    // redirect on a 401 — callers handle the thrown error themselves.
     throw new UnauthorizedError();
   }
   if (!res.ok) {

@@ -4,8 +4,6 @@ Shells out to the ``helm`` CLI (must be on PATH in the controller image),
 writing the values dict and — for customer-cluster mode — the tunnel
 kubeconfig to short-lived temp files. The command runner is injectable so
 unit tests can assert on the argv without a real ``helm``/cluster.
-
-See docs/design/nv-config-manager-integration.md §6.4, §12.
 """
 
 from __future__ import annotations

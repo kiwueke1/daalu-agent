@@ -2,7 +2,7 @@
 #
 # mirror-images.sh — mirror the NV-CM chart's images into daalu's Harbor.
 #
-# Engineer chapter 64 §64.2 step 2. The vendored NV-CM chart pulls every
+# Part of the one-time platform setup. The vendored NV-CM chart pulls every
 # image as "<repository>:<tag>" with NO global.imageRegistry indirection,
 # so to run it against Harbor we (a) push each image to
 #   <HARBOR>/<HARBOR_PROJECT>/<basename>:<tag>

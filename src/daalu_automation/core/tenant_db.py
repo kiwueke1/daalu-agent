@@ -20,8 +20,8 @@ etc. We deliberately ship the chokepoint *now* so the rest of the
 code can adopt it; the routing brain swaps in later without a
 call-site change.
 
-See ``docs/design/daalu-private.md`` §4 ("What lives where") for
-the table split, and §10 for the production TODOs.
+The table split (which tables live in the hub DB vs. the customer's
+DB) and the production TODOs are documented in the architecture notes.
 """
 
 from __future__ import annotations
@@ -53,8 +53,8 @@ async def _resolve_engine(private_db_url: str) -> AsyncEngine:  # noqa: ARG001
         * Probe the engine on first use and cache health for ~30 s.
     """
     raise NotImplementedError(
-        "Private-DB engine resolution is not yet implemented — see "
-        "docs/design/daalu-private.md §10. Set tenant.is_private=false "
+        "Private-DB engine resolution is not yet implemented. "
+        "Set tenant.is_private=false "
         "or tenant.private_db_url=NULL to fall back to the hub DB."
     )
 

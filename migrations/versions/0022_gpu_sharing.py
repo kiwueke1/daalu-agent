@@ -11,8 +11,7 @@ billed to the consumer, credited to the owner):
 The "shared ⇒ provider" invariant is enforced by a BEFORE INSERT/UPDATE
 trigger on ``gpu_tenants`` (a Postgres CHECK constraint cannot contain the
 cross-table subquery), in addition to the application-layer guard in the
-gpu-controller. See
-docs/plans/nvidia-ai-factory/13-gpu-sharing-and-multi-tenant-marketplace.md.
+gpu-controller.
 
 Revision ID: 0022_gpu_sharing
 Revises: 0021_tenant_sovereign_inference

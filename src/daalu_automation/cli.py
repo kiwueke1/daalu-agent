@@ -41,8 +41,7 @@ def server(
     ``--mode=edge`` — the per-tenant edge data plane for Daalu
     Private (full sovereignty). Runs in the daalu-edge-data pod on
     the customer's cluster; serves tenant-scoped CRUD from the
-    customer's local Postgres. See
-    ``docs/design/edge-data-plane.md``.
+    customer's local Postgres.
     """
     import os
 
@@ -90,7 +89,7 @@ def agents(mode: str = "hub") -> None:
     inside the customer's cluster (``daalu-edge`` chart with
     ``agents.enabled=true``); it polls the hub's internal API for
     *only* the tenant it was provisioned for and runs the loop
-    locally. See ``docs/design/daalu-private.md`` §5.
+    locally.
 
     Phase 1: ``--mode=edge`` is accepted by the CLI so the chart can
     deploy and the wiring is end-to-end; the runner currently
@@ -110,7 +109,7 @@ def inference_gateway(host: str = "0.0.0.0", port: int = 8080) -> None:
 
     Receives chat-completion requests from ``daalu-api``, enforces
     per-tenant quotas + rate limits, and proxies to the
-    ``daalu-vllm-pool`` upstream. See ``docs/design/daalu-hosted-gpu.md``.
+    ``daalu-vllm-pool`` upstream.
     """
     import uvicorn
 
@@ -129,7 +128,7 @@ def nautobot_controller(host: str = "0.0.0.0", port: int = 8082) -> None:
     Reconciles ``nautobot_tenants`` rows into per-tenant Nautobot
     stacks in either the operator's cluster (default) or the
     customer's federated cluster (when target_cluster_tunnel_id is
-    set on the row). See chapter 60 of the engineer book.
+    set on the row).
     """
     import uvicorn
 
@@ -151,7 +150,7 @@ def config_manager_controller(host: str = "0.0.0.0", port: int = 8083) -> None:
     target_cluster_tunnel_id is set on the row). Unlike the
     nautobot-controller it runs ``helm upgrade --install`` of the
     vendored pinned chart, so the image must ship the ``helm`` binary
-    and ``deploy/charts/`` (see Dockerfile). Engineer chapter 64.
+    and ``deploy/charts/`` (see Dockerfile).
     """
     import uvicorn
 
@@ -173,7 +172,7 @@ def gpu_controller(host: str = "0.0.0.0", port: int = 8084) -> None:
     Reconciles ``gpu_tenants`` rows into the existing ``deploy/k8s/gpu``
     vLLM stack, applied onto the operator's cluster (default) or a joined
     customer cluster (when target_cluster_tunnel_id is set) over the
-    WireGuard tunnel. See docs/plans/2026-06-02-gpu-onboarding.md.
+    WireGuard tunnel.
     """
     import uvicorn
 
@@ -191,7 +190,6 @@ def workspace_controller(host: str = "0.0.0.0", port: int = 8081) -> None:
 
     Reconciles K8s Deployments + PVCs for code-server workspaces.
     Exposes a small REST API consumed only by ``daalu-api``.
-    See ``docs/design/coding-assistant.md``.
     """
     import uvicorn
 
@@ -588,7 +586,7 @@ async def _seed_skus() -> None:
 
     The rates are illustrative — production deploys can edit them via
     direct SQL or a future admin UI. They are picked so the unit
-    economics in `docs/nvidia-strategy.md` §8 line up: the local tier is
+    economics line up: the local tier is
     priced an order of magnitude under the external classifier, which
     is itself an order of magnitude under Anthropic's quality tier.
     """

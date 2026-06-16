@@ -18,8 +18,6 @@ This module owns invoking it from the async reconcile loop:
 
 Teardown stays helm-native (``helm uninstall``) plus a namespace sweep, since
 the Deployer pre-creates secrets/CNPG resources helm doesn't own.
-
-See docs/design/nv-config-manager-integration.md and engineer chapter 64.
 """
 
 from __future__ import annotations

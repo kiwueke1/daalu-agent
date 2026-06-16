@@ -31,8 +31,7 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # capacity to other tenants through the inference-gateway. Granted by a
     # superuser only. The schema allows N providers; policy grants exactly
     # one today (the operator). Non-providers' GPUs stay private (SOVEREIGN)
-    # and unshareable. See
-    # docs/plans/nvidia-ai-factory/13-gpu-sharing-and-multi-tenant-marketplace.md.
+    # and unshareable.
     is_gpu_provider: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
@@ -70,7 +69,7 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     sovereign_model_quality: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
-    # Daalu Private tier — see docs/design/daalu-private.md.
+    # Daalu Private tier.
     # ``is_private`` is the top-level toggle every consumer should
     # branch on; the other two columns are only consulted when this
     # is true. ``edge_agents_enabled`` shifts the agent host into the
@@ -87,7 +86,6 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # the hub's EdgeForwardMiddleware proxies all tenant-scoped requests
     # to this URL via the WireGuard tunnel; rows never touch the hub
     # DB. The token cleartext lives in a K8s Secret on the edge — only
-    # its sha256 is stored on the hub. See
-    # docs/design/edge-data-plane.md.
+    # its sha256 is stored on the hub.
     edge_data_url: Mapped[str | None] = mapped_column(String, nullable=True)
     edge_data_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)

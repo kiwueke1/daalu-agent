@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
 # build-push-images.sh — build the NV-CM service images from the upstream
-# source repo and push them to daalu's Harbor.
+# source repo and push them to your container registry.
 #
-# Engineer chapter 64 §64.2 step 2, "build it ourselves" variant. The
-# upstream NVIDIA service images ship only as registry.example.com/nvidia
-# placeholders, so instead of mirroring a vendor registry we build the six
-# images from source (the open-source NVIDIA/nv-config-manager repo) and
-# push them to <HARBOR>/<HARBOR_PROJECT>/<name>:<TAG> — the exact path
-# render_values() repoints global.images.<key>.repository at.
+# "Build it ourselves" variant. The upstream NVIDIA service images ship only
+# as registry.example.com/nvidia placeholders, so instead of mirroring a
+# vendor registry we build the six images from source (the open-source
+# NVIDIA/nv-config-manager repo) and push them to
+# <HARBOR>/<HARBOR_PROJECT>/<name>:<TAG>. Point your chart's image overrides
+# at that path.
 #
-# The upstream working tree's deploy/helm/Chart.yaml must match the chart
-# vendored in daalu (deploy/charts/nv-config-manager-<TAG>): both pin the
-# image tag. Default TAG=1.2.2-rc.23 matches the vendored chart.
+# The upstream working tree's deploy/helm/Chart.yaml must match the vendored
+# chart (deploy/charts/nv-config-manager-<TAG>): both pin the image tag.
+# Default TAG=1.2.2-rc.23 matches the vendored chart.
 #
 # Toolchains live inside the Dockerfiles — the host only needs Docker
 # (+ buildx for --push). The NGC base images (nvcr.io/nvidia/base/ubuntu,
@@ -31,7 +31,8 @@
 set -euo pipefail
 
 MODE="${1:-build}"
-SRC_REPO="${SRC_REPO:-/home/kez/Documents/python_projects/nvidia-tools/nv-config-manager}"
+# SRC_REPO: a local clone of the upstream NVIDIA/nv-config-manager source repo.
+SRC_REPO="${SRC_REPO:-./nv-config-manager}"
 TAG="${TAG:-1.2.2-rc.23}"
 HARBOR="${HARBOR:-}"
 HARBOR_PROJECT="${HARBOR_PROJECT:-nv-config-manager}"
