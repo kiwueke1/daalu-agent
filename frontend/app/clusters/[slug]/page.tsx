@@ -125,10 +125,12 @@ export default function ClusterDetailPage() {
           <span>
             slug <span className="font-mono">{cluster.slug}</span>
           </span>
-          <span>
-            tunnel IP <span className="font-mono">{cluster.tunnel_ip}</span>
-          </span>
-          <span>last handshake {timeAgo(cluster.last_handshake_at)}</span>
+          {cluster.tunnel_ip && (
+            <span>
+              tunnel IP <span className="font-mono">{cluster.tunnel_ip}</span>
+            </span>
+          )}
+          <span>last checked {timeAgo(cluster.last_handshake_at)}</span>
         </div>
       </div>
 

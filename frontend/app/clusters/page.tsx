@@ -295,6 +295,15 @@ export default function ManagedInfraPage() {
               configByProvider={configByProvider}
               onConnect={(step) => setActiveStep(step)}
             />
+            {configByProvider["kubernetes"] && (
+              <Link
+                href="/clusters/kubeconfig"
+                className="inline-flex items-center gap-1.5 text-xs h-9 px-3 rounded-lg border border-accent-cyan/40 bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20"
+              >
+                Open cluster console — overview &amp; kubectl
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
           </div>
         )}
 
