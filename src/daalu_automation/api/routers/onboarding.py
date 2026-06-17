@@ -124,6 +124,11 @@ class OnboardingStatusOut(BaseModel):
     steps: list[StepStatus]
     completed: int
     total: int
+    # Whether NVIDIA Config Manager provisioning is wired on this deploy
+    # (the config-manager-controller is configured). False on laptop/Compose
+    # installs — the Network & servers tab uses this to hide the provision
+    # form and show a "Kubernetes-only" note instead of a dead form.
+    config_manager_available: bool = False
 
 
 class TestIn(BaseModel):
@@ -238,7 +243,16 @@ async def get_status(
         )
 
     completed = sum(1 for s in steps if s.configured)
-    return OnboardingStatusOut(steps=steps, completed=completed, total=len(steps))
+    from daalu_automation.core.configmgr.provision import (
+        is_config_manager_controller_enabled,
+    )
+
+    return OnboardingStatusOut(
+        steps=steps,
+        completed=completed,
+        total=len(steps),
+        config_manager_available=is_config_manager_controller_enabled(),
+    )
 
 
 # ── Validate ────────────────────────────────────────────────────────────

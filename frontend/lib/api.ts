@@ -1385,6 +1385,9 @@ export interface OnboardingStatus {
   steps: OnboardingStepStatus[];
   completed: number;
   total: number;
+  // NV-CM provisioning is only available when the config-manager-controller
+  // is configured (Kubernetes installs). False on laptop/Compose.
+  config_manager_available?: boolean;
 }
 
 export interface OnboardingTestResult {

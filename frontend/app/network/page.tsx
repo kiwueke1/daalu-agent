@@ -85,6 +85,15 @@ export default function NetworkServerManagementPage() {
     [configs],
   );
 
+  // NV-CM provisioning needs the config-manager-controller (Kubernetes
+  // installs). On a laptop/Compose deploy it's unavailable, so we hide the
+  // provision form and show a note rather than a button that 503s.
+  const { data: onboarding } = useQuery({
+    queryKey: ["onboarding", "status"],
+    queryFn: () => api.onboarding.status(),
+  });
+  const cmAvailable = onboarding?.config_manager_available ?? false;
+
   // Provision form state (only shown when there's no stack yet).
   const [picked, setPicked] = useState<Record<string, boolean>>({
     render: true,
@@ -121,6 +130,27 @@ export default function NetworkServerManagementPage() {
         <div className="text-muted text-sm">Loading…</div>
       ) : cm ? (
         <ProvisionedView cm={cm} />
+      ) : !cmAvailable ? (
+        <section className="rounded-2xl border border-line bg-bg-card p-6 space-y-3">
+          <h2 className="text-base font-medium flex items-center gap-2">
+            <Server className="h-4 w-4 text-accent-cyan" /> Available on Kubernetes
+            installs
+          </h2>
+          <p className="text-muted text-sm max-w-[640px]">
+            The NVIDIA Config Manager stack (Nautobot, Render, Temporal, config
+            store) is provisioned into a Kubernetes cluster by the
+            config-manager-controller. This deployment doesn&apos;t have that
+            controller configured — typical for a laptop / Docker Compose
+            install — so network &amp; server management is turned off here.
+          </p>
+          <p className="text-muted text-sm max-w-[640px]">
+            To enable it, run Daalu on Kubernetes, set{" "}
+            <code className="font-mono text-xs">config_manager_controller_url</code>,
+            and start the controller (
+            <code className="font-mono text-xs">daalu config-manager-controller</code>
+            ). The stack and its service consoles will then appear here.
+          </p>
+        </section>
       ) : (
         <section className="rounded-2xl border border-line bg-bg-card p-5 space-y-4">
           <div>
