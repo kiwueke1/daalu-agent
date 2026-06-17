@@ -49,6 +49,10 @@ from daalu_automation.models.gpu_tenant import GpuTenant, GpuTenantState
 from daalu_automation.models.infra import Incident, IncidentSeverity, IncidentStatus, Service
 from daalu_automation.models.integration import Integration, IntegrationStatus
 from daalu_automation.models.invite import Invite
+from daalu_automation.models.local_benchmark_run import (
+    LocalBenchmarkRun,
+    LocalBenchmarkRunState,
+)
 from daalu_automation.models.nautobot_tenant import (
     NautobotTenant,
     NautobotTenantState,
@@ -95,6 +99,8 @@ __all__ = [
     "Integration",
     "IntegrationStatus",
     "Invite",
+    "LocalBenchmarkRun",
+    "LocalBenchmarkRunState",
     "ConfigManagerTenant",
     "ConfigManagerTenantState",
     "GpuDiagnosticKind",

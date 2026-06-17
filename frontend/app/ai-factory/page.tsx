@@ -34,6 +34,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FactoryOps } from "./components/factory-ops";
+import { LocalInferencePanel } from "./components/local-inference-panel";
 
 /**
  * /ai-factory — the customer-facing window into the GPU "factory" that
@@ -72,6 +73,10 @@ export default function AiFactoryPage() {
   });
 
   const role = overview.data?.role ?? "none";
+  // Laptop / Compose path: no GPU onboarded, but a local OpenAI-compatible
+  // endpoint (Ollama / vLLM) is configured — show the local-inference panel
+  // instead of the dark-floor explainer.
+  const localConfigured = overview.data?.local_inference?.configured ?? false;
   const gpuClass = overview.data?.gpu_class ?? null;
   const metricsAvailable = overview.data?.metrics_available ?? false;
   const panels = overview.data?.panels ?? [];
@@ -118,8 +123,13 @@ export default function AiFactoryPage() {
         </div>
       </div>
 
-      {/* ── role === "none" explainer ──────────────────────────────── */}
-      {role === "none" && !overview.isLoading && (
+      {/* ── role === "none" + a local endpoint → local-inference panel ── */}
+      {role === "none" && localConfigured && !overview.isLoading && (
+        <LocalInferencePanel isAdmin={isAdmin} />
+      )}
+
+      {/* ── role === "none" with no local endpoint → dark-floor explainer ── */}
+      {role === "none" && !localConfigured && !overview.isLoading && (
         <section className="rounded-xl border border-line bg-[color:var(--bg-elevated)]/40 p-8 text-center">
           <Factory className="h-8 w-8 mx-auto text-muted" />
           <div className="text-sm font-medium mt-3">

@@ -769,6 +769,31 @@ export const api = {
     aiperfArtifactUrl: (id: string, path: string) =>
       `${BASE}/ai-factory/aiperf/runs/${id}/artifacts/` +
       path.split("/").map(encodeURIComponent).join("/"),
+    // ── Local inference (laptop / Compose path) ──
+    // The agent's configured OpenAI-compatible endpoint (Ollama / vLLM) when
+    // no GPU is onboarded. summary is read-only; validate + benchmark are
+    // admin-gated (the local operator is admin in LOCAL_NO_AUTH).
+    local: {
+      summary: () =>
+        request<AiFactoryLocalSummary>("/ai-factory/local/summary"),
+      validate: () =>
+        request<AiFactoryLocalValidateResult>("/ai-factory/local/validate", {
+          method: "POST",
+        }),
+      benchmarkRuns: () =>
+        request<{ runs: AiFactoryLocalBenchmarkRun[] }>(
+          "/ai-factory/local/benchmark",
+        ),
+      benchmarkRun: (id: string) =>
+        request<AiFactoryLocalBenchmarkDetail>(
+          `/ai-factory/local/benchmark/${id}`,
+        ),
+      runBenchmark: (body: AiFactoryLocalBenchmarkRequest) =>
+        request<{ id: string; state: "pending" }>(
+          "/ai-factory/local/benchmark",
+          { method: "POST", body: JSON.stringify(body) },
+        ),
+    },
   },
   billing: {
     skus: () => request<Sku[]>("/billing/skus"),
@@ -810,6 +835,16 @@ export interface AiFactoryOverview {
   // advisory and still gates by role, but it lets the backend hide a
   // panel (e.g. diagnostics) without a frontend change.
   panels: string[];
+  // Laptop / Compose path: the agent's configured OpenAI-compatible endpoint
+  // (typically Ollama) when no GPU is onboarded. Drives the "local" panel.
+  local_inference?: AiFactoryLocalConfig;
+}
+
+export interface AiFactoryLocalConfig {
+  configured: boolean;
+  base_url: string;
+  model: string;
+  source: string;
 }
 
 export interface AiFactoryGpu {
@@ -987,6 +1022,54 @@ export interface AiFactoryAiperfLevel {
   osl: number | null;
   metrics: Record<string, number>;
   path: string;
+}
+
+// ── Local inference (AI Factory laptop / Compose path) ───────────────────
+// The agent's OpenAI-compatible endpoint (Ollama / vLLM) when no GPU is
+// onboarded. Mirrors the /ai-factory/local/* router.
+
+export interface AiFactoryLocalSummary {
+  configured: boolean;
+  base_url: string;
+  model: string;
+  source: string;
+  reachable: boolean;
+  latency_ms: number | null;
+  models: string[];
+  error: string | null;
+  updated_at: string;
+}
+
+export interface AiFactoryLocalBenchmarkRun {
+  id: string;
+  state: AiFactoryAiperfState;
+  model: string;
+  target_url: string;
+  concurrency: string;
+  request_count: number;
+  output_tokens: number;
+  summary: Record<string, unknown> | null;
+  requested_by: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface AiFactoryLocalBenchmarkDetail
+  extends AiFactoryLocalBenchmarkRun {
+  output: string | null;
+}
+
+export interface AiFactoryLocalBenchmarkRequest {
+  concurrency?: string;
+  request_count?: number;
+  output_tokens?: number;
+}
+
+// Local validate is ephemeral (no recorded run), so unlike the GPU
+// observability check it carries no run_id.
+export interface AiFactoryLocalValidateResult {
+  checks: AiFactoryValidateCheck[];
+  passed: boolean;
 }
 
 export interface CurrentUser {

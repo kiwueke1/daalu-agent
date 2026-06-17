@@ -264,6 +264,15 @@ LLM_MODEL_CLASSIFIER=qwen2.5:7b
 CPU inference is **slow** — fine for a first look, not real use. For production, use
 [2B](#2b-production-a-gpu-kubernetes-cluster).
 
+> **See it in AI Factory.** Once `LLM_BASE_URL` points at a live endpoint, the
+> **AI Factory** page surfaces your local brain even without a GPU cluster: the
+> serving model, the endpoint's reachability and latency, and the models it
+> advertises on `/v1/models`. Admins also get an **endpoint self-check** and a
+> small **benchmark** (a concurrency sweep measuring TTFT / inter-token latency /
+> throughput, run by the worker straight against the endpoint — no GPU needed).
+> On a laptop this is the AI Factory floor; the NVIDIA hardware metrics
+> (utilisation, thermals, DCGM health) only appear on the GPU path ([2B](#2b-production-a-gpu-kubernetes-cluster)).
+
 ### 2B. Production: a GPU Kubernetes cluster
 
 The full flow for infra teams: stand up a **GPU Kubernetes cluster** with scripts,

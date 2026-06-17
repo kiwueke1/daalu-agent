@@ -84,12 +84,29 @@ async def overview(
     tenant_id: uuid.UUID = Depends(current_tenant_id),
 ):
     view = await resolve_factory_view(db, tenant_id)
+    # Laptop / Compose path: no onboarded GPU, but the agent still runs on a
+    # local OpenAI-compatible endpoint (typically Ollama). Surface it so the
+    # factory floor isn't dark for a single-operator install. The probe itself
+    # (liveness, models) is the cheaper /ai-factory/local/summary call; here we
+    # only report whether an endpoint is configured, to gate the panel.
+    from daalu_automation.core.local_inference import resolve_endpoint
+
+    ep = resolve_endpoint()
+    panels = list(view.panels)
+    if view.role == "none" and ep.configured:
+        panels.append("local")
     return {
         "role": view.role,
         "has_gpu": view.has_gpu,
         "gpu_class": view.gpu_class,
         "metrics_available": PrometheusClient().configured and view.role != "none",
-        "panels": view.panels,
+        "panels": panels,
+        "local_inference": {
+            "configured": ep.configured,
+            "base_url": ep.base_url,
+            "model": ep.model,
+            "source": ep.source,
+        },
     }
 
 

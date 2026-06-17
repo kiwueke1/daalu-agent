@@ -35,6 +35,7 @@ def _autoload_modules() -> None:
     import daalu_automation.modules.infra.tasks  # noqa: F401
     import daalu_automation.workers.executor  # noqa: F401
     import daalu_automation.workers.integration_health  # noqa: F401
+    import daalu_automation.workers.local_benchmark  # noqa: F401
     import daalu_automation.workers.reconciler  # noqa: F401
     import daalu_automation.workers.report_dispatch  # noqa: F401
 
