@@ -234,12 +234,19 @@ curl -fsSL https://ollama.com/install.sh | sh   # Linux/macOS
 ollama pull qwen2.5:7b                           # small; CPU-friendly. 14b if you have the RAM/GPU
 ```
 
-> **Have a GPU?** `./scripts/install-inference.sh` auto-detects it and installs
-> the right runtime: an **NVIDIA** GPU is used automatically by stock Ollama
-> (CUDA); an **Intel Arc** GPU needs Intel's IPEX-LLM build (stock Ollama can't
-> use Intel GPUs and falls back to CPU), which the script sets up; otherwise it
-> installs CPU Ollama. It then pulls a right-sized model and prints the `LLM_*`
-> lines for your `.env`.
+> **Have a GPU? (or a Mac?)** `./scripts/install-inference.sh` auto-detects the
+> platform and installs the right runtime:
+> - **macOS (Apple Silicon)** — Ollama uses the **Metal** GPU automatically; the
+>   simplest and fastest laptop path, nothing extra to install.
+> - **NVIDIA** — used automatically by stock Ollama (CUDA).
+> - **Intel Arc** — needs Intel's IPEX-LLM build (stock Ollama can't use Intel
+>   GPUs and falls back to CPU); the script sets up the runtime.
+> - otherwise — CPU Ollama.
+>
+> It then pulls a right-sized model and prints the `LLM_*` lines for your `.env`.
+> On **Linux** Ollama runs as a systemd service and must bind `0.0.0.0` so the
+> containers can reach it; on **macOS** Docker Desktop's `host.docker.internal`
+> handles that for you.
 
 **Verify Ollama is serving:**
 

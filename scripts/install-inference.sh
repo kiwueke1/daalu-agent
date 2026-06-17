@@ -5,6 +5,8 @@
 # -----------------------------------------------------------------------------
 #  Picks the right runtime for the hardware it finds:
 #
+#    • macOS (Apple Silicon) → Ollama, which uses the Metal GPU automatically.
+#                    The simplest + fastest laptop path; no GPU runtime to set up.
 #    • NVIDIA GPU  → stock Ollama. Ollama auto-detects CUDA and uses the GPU
 #                    with no extra config (driver + a recent Ollama is enough).
 #    • Intel Arc   → IPEX-LLM's Ollama (SYCL/oneAPI). Stock Ollama has no Intel
@@ -34,7 +36,47 @@ die(){ printf "%s\n" "${RED}✘ $*${RST}" >&2; exit 1; }
 
 OLLAMA_PORT="${OLLAMA_PORT:-11434}"
 
-# ── 1. Detect the accelerator ────────────────────────────────────────────────
+# ── 0. macOS — Apple Silicon uses Metal automatically (no runtime to install) ──
+if [ "$(uname -s)" = "Darwin" ]; then
+  ARCH="$(uname -m)"
+  if [ "$ARCH" = "arm64" ]; then
+    say "macOS on Apple Silicon — Ollama uses the GPU automatically via Metal (no extra runtime)."
+    # Unified memory lets the GPU use most of system RAM, so a 14B is fine on
+    # a roomy Mac; default to 7B and let the operator bump it.
+    MODEL="${MODEL:-qwen2.5:7b}"
+  else
+    warn "macOS on Intel — no Metal LLM acceleration; Ollama runs on CPU. A 7B model is the practical ceiling."
+    MODEL="${MODEL:-qwen2.5:7b}"
+  fi
+  if command -v ollama >/dev/null 2>&1; then
+    ok "Ollama already installed ($(ollama --version 2>&1 | head -1))"
+  elif command -v brew >/dev/null 2>&1; then
+    say "Installing Ollama via Homebrew"; brew install ollama || true
+  else
+    warn "Install the Ollama app from https://ollama.com/download (or 'brew install ollama'), start it, then re-run."
+  fi
+  if command -v ollama >/dev/null 2>&1; then
+    say "Pulling ${BOLD}${MODEL}${RST}"; ollama pull "$MODEL" && ok "model ready"
+  fi
+  cat <<EOF
+
+${GRN}✔ Inference ready (macOS / ${ARCH}).${RST}
+
+  Make sure Ollama is running (the menu-bar app, or ${BOLD}ollama serve${RST}), then
+  put these in Daalu's .env and ${BOLD}docker compose up -d${RST}:
+
+     LLM_BASE_URL=http://host.docker.internal:${OLLAMA_PORT}/v1
+     LLM_API_KEY=ollama
+     LLM_MODEL=${MODEL}
+     LLM_MODEL_CLASSIFIER=${MODEL}
+
+  Docker Desktop on macOS provides host.docker.internal automatically — no
+  extra host mapping or 0.0.0.0 bind needed (unlike Linux).
+EOF
+  exit 0
+fi
+
+# ── 1. Detect the accelerator (Linux) ────────────────────────────────────────
 detect_accel() {
   if [ -n "${ACCEL:-}" ]; then echo "$ACCEL"; return; fi
   if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
