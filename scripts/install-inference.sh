@@ -96,24 +96,39 @@ case "$ACCEL_DETECTED" in
     #     distro/age; install what's available and continue on misses.
     if command -v apt-get >/dev/null 2>&1; then
       $SUDO apt-get update -y || true
-      $SUDO apt-get install -y \
-        intel-opencl-icd intel-level-zero-gpu level-zero \
-        libze1 libze-intel-gpu1 clinfo 2>/dev/null || \
-        warn "Some Intel GPU runtime packages weren't found in the default repos. For newest silicon (e.g. Lunar Lake) add Intel's graphics APT repo: https://dgpu-docs.intel.com — then re-run."
+      # Install per-package (names vary by distro/silicon) so one miss doesn't
+      # abort the rest. These four cover OpenCL + Level-Zero on recent Ubuntu
+      # (verified on 26.04 / Lunar Lake Arc 140V with the kernel `xe` driver).
+      for p in intel-opencl-icd clinfo libze1 libze-intel-gpu1; do
+        $SUDO apt-get install -y "$p" >/dev/null 2>&1 && ok "  runtime: $p" \
+          || warn "  runtime pkg '$p' not found — on very new silicon add Intel's graphics APT repo (https://dgpu-docs.intel.com) and re-run."
+      done
+      if command -v clinfo >/dev/null 2>&1 && clinfo -l 2>/dev/null | grep -qi "Arc\|Intel.*Graphics"; then
+        ok "Intel GPU visible to the compute runtime: $(clinfo -l 2>/dev/null | grep -i Device | head -1 | sed 's/^[^A-Za-z]*//')"
+      else
+        warn "Intel GPU NOT yet visible to the OpenCL/Level-Zero runtime — IPEX-LLM will fall back to CPU until the runtime sees it (newer kernel / Intel graphics repo may be needed)."
+      fi
     else
       warn "Non-apt distro — install Intel's compute runtime (intel-opencl-icd, level-zero) by hand per https://dgpu-docs.intel.com"
     fi
     # 2b. IPEX-LLM Ollama. Intel ships it via the ipex-llm[cpp] wheel which lays
     #     down an Ollama that links the SYCL backend.
     if ! command -v python3 >/dev/null 2>&1; then die "python3 required for the IPEX-LLM install"; fi
+    PYVER="$(python3 -c 'import sys;print("%d.%d"%sys.version_info[:2])')"
+    case "$PYVER" in
+      3.9|3.10|3.11) : ;;  # IPEX-LLM publishes wheels for these
+      *) warn "Python ${PYVER} detected — IPEX-LLM's pip wheels lag new Python (3.9–3.11). On a too-new distro (e.g. Ubuntu 26.04 / Python 3.14) the pip install below will FAIL. Prefer Intel's IPEX-LLM 'Ollama Portable Zip' (no Python needed) from https://github.com/intel/ipex-llm/releases, or install Python 3.11 first (miniforge/conda)." ;;
+    esac
     IPEX_DIR="${IPEX_DIR:-$HOME/.daalu-ipex-ollama}"
-    say "Setting up IPEX-LLM Ollama in ${IPEX_DIR}"
-    python3 -m venv "$IPEX_DIR/venv"
+    say "Setting up IPEX-LLM Ollama in ${IPEX_DIR} (needs the python3-venv package)"
+    python3 -m venv "$IPEX_DIR/venv" || die "venv creation failed — install python${PYVER}-venv (apt) and retry, or use the Portable Zip above."
     # shellcheck disable=SC1091
     . "$IPEX_DIR/venv/bin/activate"
     pip install --upgrade pip >/dev/null
-    pip install --pre --upgrade "ipex-llm[cpp]" || \
-      die "pip install ipex-llm[cpp] failed — check https://github.com/intel/ipex-llm for current Arc/Lunar-Lake instructions."
+    pip install --pre --upgrade "ipex-llm[cpp]" || {
+      warn "pip install ipex-llm[cpp] failed (often: Python too new for the wheels). Use Intel's 'Ollama Portable Zip' from https://github.com/intel/ipex-llm/releases — it bundles the SYCL Ollama with no Python dependency. The OpenCL runtime + GPU are already set up by this script."
+      exit 1
+    }
     mkdir -p "$IPEX_DIR/ollama" && cd "$IPEX_DIR/ollama"
     # init-ollama symlinks the IPEX-LLM-built ollama binary into this dir.
     init-ollama || init-ollama.bat || warn "init-ollama not found on PATH — it ships with ipex-llm[cpp]; activate the venv and run it manually."
