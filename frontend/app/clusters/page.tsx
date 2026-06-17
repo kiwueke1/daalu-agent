@@ -290,19 +290,56 @@ export default function ManagedInfraPage() {
               attach a cluster this way — it shows connected once a tool call
               against it succeeds.
             </p>
-            <ProviderTable
-              steps={kubernetesSteps}
-              configByProvider={configByProvider}
-              onConnect={(step) => setActiveStep(step)}
-            />
-            {configByProvider["kubernetes"] && (
-              <Link
-                href="/clusters/kubeconfig"
-                className="inline-flex items-center gap-1.5 text-xs h-9 px-3 rounded-lg border border-accent-cyan/40 bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20"
-              >
-                Open cluster console — overview &amp; kubectl
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
+            {configByProvider["kubernetes"] ? (
+              // Connected: the whole cluster row is the link into its console.
+              <div className="space-y-2">
+                <Link
+                  href="/clusters/kubeconfig"
+                  className="group flex items-center justify-between gap-3 rounded-2xl border border-line bg-bg-card px-4 py-3 hover:border-accent-cyan/40 hover:bg-bg-elevated/30"
+                >
+                  <span className="inline-flex items-center gap-3 min-w-0">
+                    <span
+                      className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
+                      style={{
+                        background:
+                          "color-mix(in srgb, var(--accent) 12%, transparent)",
+                      }}
+                    >
+                      <Server className="h-4 w-4 text-accent-cyan" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-medium group-hover:text-accent-cyan group-hover:underline">
+                        Kubernetes cluster
+                      </span>
+                      <span className="block text-[11px] text-muted">
+                        Overview &amp; kubectl console
+                      </span>
+                    </span>
+                  </span>
+                  <span className="inline-flex items-center gap-3 shrink-0">
+                    <ProviderStatusBadge existing={configByProvider["kubernetes"]} />
+                    <span className="text-muted group-hover:text-accent-cyan inline-flex items-center gap-1 text-xs">
+                      Open <ChevronRight className="h-4 w-4" />
+                    </span>
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() =>
+                    kubernetesSteps[0] && setActiveStep(kubernetesSteps[0])
+                  }
+                  className="text-[11px] text-muted hover:text-fg inline-flex items-center gap-1"
+                >
+                  <Settings className="h-3 w-3" /> Edit kubeconfig
+                </button>
+              </div>
+            ) : (
+              // Not connected yet: offer the Connect (paste kubeconfig) flow.
+              <ProviderTable
+                steps={kubernetesSteps}
+                configByProvider={configByProvider}
+                onConnect={(step) => setActiveStep(step)}
+              />
             )}
           </div>
         )}
