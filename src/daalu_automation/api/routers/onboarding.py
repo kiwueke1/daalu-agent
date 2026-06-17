@@ -48,6 +48,7 @@ from daalu_automation.models import (
     ClusterTunnel,
     ClusterTunnelStatus,
     Integration,
+    IntegrationStatus,
     User,
 )
 
@@ -624,3 +625,134 @@ async def test_provider(
         ok, msg = False, f"tester crashed: {e}"
     latency_ms = int((time.monotonic() - started) * 1000)
     return TestOut(ok=ok, message=msg, latency_ms=latency_ms)
+
+
+# ── NV-CM (network config-management plane) provisioning ─────────────────
+#
+# Drives the config-manager-controller (CLI: ``daalu config-manager-controller``)
+# to ``helm upgrade --install`` the vendored NVIDIA Config Manager chart
+# (components/nv-config-manager/) into a Kubernetes cluster, then upserts the
+# ``Integration(provider="config_manager")`` row with the resolved console
+# URLs — which the Network & servers tab renders as clickable consoles.
+#
+# This is a Kubernetes-path feature: it requires ``config_manager_controller_url``
+# to be set and the controller reachable. On a laptop / Compose install neither
+# exists, so ``is_config_manager_controller_enabled()`` is False and the endpoint
+# returns 503 (the UI shows "not configured" instead of a stack). That is the
+# intended graceful skip for non-k8s installs.
+
+
+class ProvisionConfigManagerIn(BaseModel):
+    components: dict[str, bool] | None = None
+    size_profile: str = "small"
+    base_hostname: str | None = None
+    target_cluster_tunnel_id: uuid.UUID | None = None
+
+
+class ProvisionConfigManagerOut(BaseModel):
+    ok: bool
+    message: str
+    base_hostname: str
+    components: dict[str, Any] = {}
+    urls: dict[str, Any] = {}
+
+
+@router.post("/config-manager/provision", response_model=ProvisionConfigManagerOut)
+async def provision_config_manager(
+    body: ProvisionConfigManagerIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_admin),
+):
+    """Provision the tenant's NVIDIA Config Manager (network) stack.
+
+    Drives the config-manager-controller to ``helm upgrade --install`` a
+    per-tenant NV-CM release (in daalu's cluster by default, or a joined
+    cluster when ``target_cluster_tunnel_id`` is set), polls to ``active``,
+    then upserts the ``Integration(provider="config_manager")`` row with the
+    resolved svc-* + browser console URLs. Returns 503 when the controller
+    isn't configured (e.g. a laptop / Compose install).
+    """
+    from daalu_automation.core.configmgr.provision import (
+        ConfigManagerProvisioningError,
+        is_config_manager_controller_enabled,
+        provision_via_config_manager_controller,
+    )
+
+    if not is_config_manager_controller_enabled():
+        raise HTTPException(
+            503,
+            "config-manager provisioning is not configured on this deploy "
+            "(set config_manager_controller_url and run the "
+            "config-manager-controller on a Kubernetes install)",
+        )
+
+    try:
+        provisioned = await provision_via_config_manager_controller(
+            tenant_id=user.tenant_id,
+            components=body.components,
+            size_profile=body.size_profile,
+            base_hostname=body.base_hostname,
+            target_cluster_tunnel_id=body.target_cluster_tunnel_id,
+        )
+    except ConfigManagerProvisioningError as e:
+        logger.error("onboarding.config_manager.provision_failed", error=str(e))
+        raise HTTPException(502, str(e)) from e
+
+    urls = provisioned.urls or {}
+    new_cfg = {
+        # Machine (svc-*) URLs the ConfigManagerExecutor + SoT use.
+        "config_store_url": urls.get("config_store_url", ""),
+        "render_url": urls.get("render_url", ""),
+        "workflow_url": urls.get("workflow_url", ""),
+        "nautobot_url": urls.get("nautobot_url", ""),
+        "ui_url": urls.get("ui", ""),
+        # Human (browser) URLs — the frontend renders these as the
+        # tool-console links on the Network & servers tab.
+        "ui_human": urls.get("ui", ""),
+        "nautobot_human": urls.get("nautobot_human", ""),
+        "render_human": urls.get("render_human", ""),
+        "workflow_human": urls.get("workflow_human", ""),
+        "config_store_human": urls.get("config_store_human", ""),
+        "base_hostname": provisioned.base_hostname,
+        "components": provisioned.components,
+        "hosted": True,
+    }
+    existing = (
+        await db.execute(
+            select(Integration).where(
+                Integration.tenant_id == user.tenant_id,
+                Integration.provider == "config_manager",
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is None:
+        db.add(
+            Integration(
+                tenant_id=user.tenant_id,
+                provider="config_manager",
+                module="infra",
+                name="NVIDIA Config Manager",
+                status=IntegrationStatus.connected,
+                config=new_cfg,
+                cluster_tunnel_id=body.target_cluster_tunnel_id,
+            )
+        )
+    else:
+        merged = dict(existing.config or {})
+        merged.update(new_cfg)
+        existing.config = merged
+        existing.status = IntegrationStatus.connected
+        existing.name = existing.name or "NVIDIA Config Manager"
+        # Only (re)bind the tunnel when this provision specified one, so a
+        # re-provision without it doesn't silently detach an existing tunnel.
+        if body.target_cluster_tunnel_id is not None:
+            existing.cluster_tunnel_id = body.target_cluster_tunnel_id
+    await db.commit()
+
+    return ProvisionConfigManagerOut(
+        ok=True,
+        message="provisioned NVIDIA Config Manager stack",
+        base_hostname=provisioned.base_hostname,
+        components=provisioned.components,
+        urls=urls,
+    )
