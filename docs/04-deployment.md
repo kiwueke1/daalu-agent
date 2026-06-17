@@ -372,3 +372,36 @@ watch and act on:
 - **Linux / network devices** — SSH or NETCONF credentials; changes flow through the approve-before-execute pipeline.
 
 See [05-tools.md](05-tools.md) for what the agent can do with each.
+
+---
+
+## Try it end-to-end — the demo lab
+
+Want to *see* the whole loop — monitor → detect → investigate → propose → approve →
+fix — without wiring up real infrastructure? The [`demo/`](../demo) folder stands up
+a throwaway, fully-monitored Kubernetes cluster (a local [kind](https://kind.sigs.k8s.io)
+cluster with Prometheus/Alertmanager/Grafana + Loki and two sample apps), hands it to
+Daalu, and lets you break things on purpose.
+
+**Prerequisites:** Daalu already running (Part 1), plus `kind`, `kubectl`, `helm` on the host.
+
+```bash
+./demo/up.sh          # create the cluster, deploy the apps, onboard it to Managed Infra
+./demo/break.sh       # take an app down on purpose (a bad image rollout)
+./demo/status.sh      # watch the alert + app state
+# → open the UI → Alerts: the DummyAppDown alert appears and the agent triages it.
+./demo/down.sh        # tear the whole lab down
+```
+
+`up.sh` registers the cluster's **Kubernetes**, **Prometheus**, and **Loki**
+integrations automatically (the same Managed-Infra onboarding you'd do by hand for a
+real cluster), so within a few minutes of `break.sh` the agent raises an Alert and
+reasons about the fix. Full walkthrough, break scenarios, and the networking details
+are in [demo/README.md](../demo/README.md).
+
+> **Laptop notes.** First run pulls several images (give it ~10–15 min). Agent
+> *reasoning* runs on your inference model — on a CPU-only box with a 14B model it's
+> slow (minutes per alert); use a smaller model or a GPU/hosted endpoint for a snappy
+> demo. If your API isn't on `localhost:8000` or the monitoring host-ports
+> (`9090/9093/3001`) are taken, set `DAALU_API` / `DEMO_BIND_ADDR` — see
+> [demo/README.md](../demo/README.md#environment-overrides).
