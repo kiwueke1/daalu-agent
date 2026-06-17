@@ -62,6 +62,22 @@ export function InvestigationTiles({ alert }: InvestigationTilesProps) {
     queryKey: ["alert-chat", alert.id],
     queryFn: () => api.alerts.chat.list(alert.id),
     refetchOnWindowFocus: false,
+    // Poll the transcript while an autonomous pass is in flight (a kickoff
+    // exists but the final 3-section summary hasn't landed) so the agent's
+    // reasoning + tool calls + results stream into the tiles live — even
+    // after the kickoff HTTP request itself has returned/timed out (the
+    // server-side pass keeps running and committing steps).
+    refetchInterval: (q) => {
+      const msgs = (q.state.data as AlertChatMessage[] | undefined) ?? [];
+      // Poll while a kickoff is still awaiting its first reply, or while the
+      // most recent turn is a tool call awaiting the model's next step —
+      // i.e. an investigation is actively in progress. Stops once the latest
+      // message is an assistant turn (the pass committed its result), so a
+      // malformed/short answer can't make us poll forever.
+      const last = msgs[msgs.length - 1];
+      const inFlight = !!last && (last.role === "user" || last.role === "tool");
+      return inFlight ? 3000 : false;
+    },
   });
 
   const triage = useMutation({
@@ -83,8 +99,21 @@ export function InvestigationTiles({ alert }: InvestigationTilesProps) {
 
   const groups = useMemo(() => groupActions(messages ?? []), [messages]);
   const sections = useMemo(() => parseSections(latestSummary(messages ?? [])), [messages]);
+  // The agent's live work: reasoning + tool calls + results, in order.
+  const activity = useMemo(() => buildActivity(messages ?? []), [messages]);
 
-  const triageInFlight = triage.isPending;
+  // A pass is "working" when triage was just kicked off, or the latest turn is
+  // a kickoff awaiting its first reply / a tool call awaiting the model's next
+  // step (an investigation actively in progress). Bounded — flips off once an
+  // assistant turn is the latest message, so a malformed answer can't pin the
+  // spinner on forever.
+  const msgList = messages ?? [];
+  const lastMsg = msgList[msgList.length - 1];
+  const working =
+    triage.isPending ||
+    (!!lastMsg && (lastMsg.role === "user" || lastMsg.role === "tool"));
+
+  const triageInFlight = working;
 
   if (isLoading) {
     return (
@@ -130,6 +159,8 @@ export function InvestigationTiles({ alert }: InvestigationTilesProps) {
           icon={<Sparkles className="h-3.5 w-3.5" />}
           accent="var(--accent)"
           pending={triageInFlight && !sections.rootCause}
+          working={working}
+          activity={activity}
           empty="No findings yet — hit Re-triage to start an investigation."
         />
         <NarrativeTile
@@ -139,6 +170,8 @@ export function InvestigationTiles({ alert }: InvestigationTilesProps) {
           icon={<BookOpen className="h-3.5 w-3.5" />}
           accent="var(--info)"
           pending={triageInFlight && !sections.background}
+          working={working}
+          activity={activity}
           empty="Background context will appear here once the agent has investigated."
         />
         <RemediationTile
@@ -147,6 +180,8 @@ export function InvestigationTiles({ alert }: InvestigationTilesProps) {
           executedWrites={groups.executedWrites}
           plan={sections.remediationPlan}
           pending={triageInFlight && !sections.remediationPlan}
+          working={working}
+          activity={activity}
         />
       </div>
 
@@ -177,6 +212,8 @@ function NarrativeTile({
   icon,
   accent,
   pending,
+  working,
+  activity,
   empty,
 }: {
   title: string;
@@ -185,14 +222,21 @@ function NarrativeTile({
   icon: React.ReactNode;
   accent: string;
   pending: boolean;
+  working: boolean;
+  activity: ActivityStep[];
   empty: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
   const hasBody = !!body && body.trim() !== "—";
+  const hasActivity = activity.length > 0;
+  // Clickable while the agent is still working (or there's activity) — not
+  // just after a final body lands — so you can watch the investigation live.
+  const canOpen = hasBody || hasActivity || working;
 
   return (
     <div
-      className={`narrative-tile rounded-2xl overflow-hidden ${open ? "md:col-span-3" : ""}`}
+      className={`narrative-tile rounded-2xl overflow-hidden ${open && canOpen ? "md:col-span-3" : ""}`}
       style={{
         background: "var(--bg-card)",
         border: "1px solid var(--line)",
@@ -206,8 +250,8 @@ function NarrativeTile({
     >
       <button
         type="button"
-        onClick={() => hasBody && setOpen(!open)}
-        disabled={!hasBody}
+        onClick={() => canOpen && setOpen(!open)}
+        disabled={!canOpen}
         className="w-full text-left px-5 py-4 flex items-center gap-3"
       >
         <span
@@ -227,41 +271,76 @@ function NarrativeTile({
             {title}
           </div>
         </div>
-        {hasBody && (
+        {canOpen ? (
           <span className="text-[11px] text-muted inline-flex items-center gap-1">
+            {working && !hasBody && <Loader2 className="h-3 w-3 animate-spin" />}
             {open ? (
               <>
                 Collapse <ChevronDown className="h-3.5 w-3.5" />
               </>
             ) : (
               <>
-                Open <ChevronRight className="h-3.5 w-3.5" />
+                {hasBody ? "Open" : "Watch live"}{" "}
+                <ChevronRight className="h-3.5 w-3.5" />
               </>
             )}
           </span>
-        )}
-        {!hasBody && pending && (
+        ) : pending ? (
           <Loader2 className="h-4 w-4 text-muted animate-spin" />
-        )}
+        ) : null}
       </button>
 
-      {!hasBody && (
+      {!open && !hasBody && (
         <div className="px-5 pb-4 text-[12px] text-muted">
-          {pending ? "Investigating — agent is pulling logs, events and metrics…" : empty}
+          {working
+            ? hasActivity
+              ? `Investigating — ${activity.length} step${activity.length === 1 ? "" : "s"} so far. Click “Watch live” to follow along.`
+              : "Investigating — agent is pulling logs, events and metrics…"
+            : empty}
         </div>
       )}
 
-      {/* Artwork removed in v2 — the closed-state tile is just the
-       *  title row above. No illustration, no dead space below. */}
-
-      {open && hasBody && (
+      {open && canOpen && (
         <div
           className="px-5 pb-5"
           style={{ borderTop: "1px solid var(--line)" }}
         >
-          <article className="prose prose-sm dark:prose-invert max-w-none investigation-md mt-4">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
-          </article>
+          {hasBody ? (
+            <>
+              <article className="prose prose-sm dark:prose-invert max-w-none investigation-md mt-4">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+              </article>
+              {hasActivity && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowActivity(!showActivity)}
+                    className="text-[11px] text-muted hover:text-[color:var(--text)] inline-flex items-center gap-1"
+                  >
+                    {showActivity ? (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    )}
+                    Investigation activity ({activity.length} step
+                    {activity.length === 1 ? "" : "s"})
+                  </button>
+                  {showActivity && (
+                    <div className="mt-3">
+                      <LiveActivityFeed steps={activity} working={working} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="mt-4">
+              <div className="text-[10px] uppercase tracking-wider text-muted mb-2">
+                Live agent activity
+              </div>
+              <LiveActivityFeed steps={activity} working={working} />
+            </div>
+          )}
         </div>
       )}
 
@@ -305,14 +384,19 @@ function RemediationTile({
   executedWrites,
   plan,
   pending,
+  working,
+  activity,
 }: {
   alert: Alert;
   pendingWrites: AlertAction[];
   executedWrites: AlertAction[];
   plan: string;
   pending: boolean;
+  working: boolean;
+  activity: ActivityStep[];
 }) {
   const [open, setOpen] = useState(false);
+  const hasActivity = activity.length > 0;
   const qc = useQueryClient();
   const approveOne = useMutation({
     mutationFn: (actionId: string) => api.alerts.chat.approve(alert.id, actionId),
@@ -352,9 +436,10 @@ function RemediationTile({
     !!plan || pendingWrites.length > 0 || executedWrites.length > 0;
 
   if (!hasContent) {
+    const canOpen = hasActivity || working;
     return (
       <div
-        className="rounded-2xl overflow-hidden"
+        className={`rounded-2xl overflow-hidden ${open && canOpen ? "md:col-span-3" : ""}`}
         style={{
           background: "var(--bg-card)",
           border: "1px solid var(--line)",
@@ -365,7 +450,12 @@ function RemediationTile({
           `,
         }}
       >
-        <div className="px-5 py-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => canOpen && setOpen(!open)}
+          disabled={!canOpen}
+          className="w-full text-left px-5 py-4 flex items-center gap-3"
+        >
           <span
             className="inline-flex h-7 w-7 items-center justify-center rounded-md shrink-0"
             style={{
@@ -379,17 +469,47 @@ function RemediationTile({
             <div className="text-[10px] uppercase tracking-wider text-muted">
               Plan + manual steps
             </div>
-            <div className="text-[15px] font-semibold leading-tight">
+            <div className="text-[15px] font-semibold leading-tight truncate">
               Remediation plan
             </div>
           </div>
-          {pending && <Loader2 className="h-4 w-4 text-muted animate-spin" />}
-        </div>
-        <div className="px-5 pb-4 text-[12px] text-muted">
-          {pending
-            ? "Investigating — the plan will appear here once the agent has a fix proposal."
-            : "No plan yet. Re-triage or ask the chat for next steps."}
-        </div>
+          {canOpen ? (
+            <span className="text-[11px] text-muted inline-flex items-center gap-1">
+              {working && <Loader2 className="h-3 w-3 animate-spin" />}
+              {open ? (
+                <>
+                  Collapse <ChevronDown className="h-3.5 w-3.5" />
+                </>
+              ) : (
+                <>
+                  Watch live <ChevronRight className="h-3.5 w-3.5" />
+                </>
+              )}
+            </span>
+          ) : pending ? (
+            <Loader2 className="h-4 w-4 text-muted animate-spin" />
+          ) : null}
+        </button>
+        {!open && (
+          <div className="px-5 pb-4 text-[12px] text-muted">
+            {working
+              ? hasActivity
+                ? `Investigating — ${activity.length} step${activity.length === 1 ? "" : "s"} so far. Click “Watch live” to follow along.`
+                : "Investigating — the plan will appear here once the agent has a fix proposal."
+              : "No plan yet. Re-triage or ask the chat for next steps."}
+          </div>
+        )}
+        {open && canOpen && (
+          <div
+            className="px-5 pb-5"
+            style={{ borderTop: "1px solid var(--line)" }}
+          >
+            <div className="text-[10px] uppercase tracking-wider text-muted mb-2 mt-4">
+              Live agent activity
+            </div>
+            <LiveActivityFeed steps={activity} working={working} />
+          </div>
+        )}
       </div>
     );
   }
@@ -1358,6 +1478,123 @@ function groupActions(messages: AlertChatMessage[]): Groups {
     }
   }
   return out;
+}
+
+// ── Live activity feed (the agent's work-in-progress) ───────────────────
+//
+// Flattens the transcript into ordered steps — the model's reasoning text and
+// each tool call + its result — so a tile can show what the agent is doing
+// right now, before the final 3-section summary lands. The summary message
+// itself is excluded (the tiles already render it).
+
+interface ActivityStep {
+  kind: "reasoning" | "tool";
+  text?: string;
+  tool?: string;
+  args?: Record<string, unknown>;
+  status?: string;
+  output?: string;
+  failed?: boolean;
+}
+
+function buildActivity(messages: AlertChatMessage[]): ActivityStep[] {
+  const HEADER_RE =
+    /^##\s+(root cause|background|context|remediation|plan)\b/im;
+  let summaryId: string | null = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "assistant" && HEADER_RE.test(m.content || "")) {
+      summaryId = m.id;
+      break;
+    }
+  }
+  const steps: ActivityStep[] = [];
+  for (const m of messages) {
+    if (m.role !== "assistant" || m.id === summaryId) continue;
+    if (m.content && m.content.trim()) {
+      steps.push({ kind: "reasoning", text: m.content });
+    }
+    for (const a of m.actions || []) {
+      steps.push({
+        kind: "tool",
+        tool: a.tool_name,
+        args: a.tool_input,
+        status: a.status,
+        output: a.result_output || a.result_error || "",
+        failed: a.status === "failed",
+      });
+    }
+  }
+  return steps;
+}
+
+function LiveActivityFeed({
+  steps,
+  working,
+}: {
+  steps: ActivityStep[];
+  working: boolean;
+}) {
+  if (steps.length === 0) {
+    return (
+      <div className="text-[12px] text-muted flex items-center gap-2">
+        {working && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        {working
+          ? "Agent is starting the investigation…"
+          : "No activity recorded yet."}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {steps.map((s, i) =>
+        s.kind === "reasoning" ? (
+          <div
+            key={i}
+            className="rounded-md border border-line bg-bg-elevated/40 px-3 py-2"
+          >
+            <span className="text-[10px] uppercase tracking-wider text-muted inline-flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> Reasoning
+            </span>
+            <div className="mt-1 text-[12px] whitespace-pre-wrap break-words">
+              {s.text}
+            </div>
+          </div>
+        ) : (
+          <details
+            key={i}
+            open
+            className="rounded-md border border-line bg-bg-elevated/50"
+          >
+            <summary className="cursor-pointer px-3 py-1.5 text-[11px] flex items-center gap-2">
+              <TerminalSquare className="h-3 w-3" />
+              <span className="font-mono">{s.tool}</span>
+              <span className="text-muted truncate">
+                {renderArgs(s.args || {})}
+              </span>
+              <span
+                className="ml-auto text-[10px] uppercase tracking-wider"
+                style={{ color: s.failed ? "var(--critical)" : "var(--accent)" }}
+              >
+                {s.status}
+              </span>
+            </summary>
+            {s.output ? (
+              <HighlightedLog
+                content={s.output}
+                variant={s.failed ? "error" : "normal"}
+              />
+            ) : null}
+          </details>
+        )
+      )}
+      {working && (
+        <div className="text-[12px] text-muted flex items-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Agent is working…
+        </div>
+      )}
+    </div>
+  );
 }
 
 function latestSummary(messages: AlertChatMessage[]): string {
