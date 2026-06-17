@@ -26,6 +26,7 @@ import {
   IntegrationStep,
 } from "@/components/integrations/steps";
 import { ConnectModal } from "@/components/integrations/connect-modal";
+import { cn } from "@/lib/utils";
 
 // ── Sections of providers surfaced on this page ─────────────────────────
 //
@@ -171,6 +172,7 @@ export default function ManagedInfraPage() {
     return map;
   }, [integrationConfigs]);
 
+  const [k8sTab, setK8sTab] = useState<"kubeconfig" | "tunnel">("kubeconfig");
   const [showClusterForm, setShowClusterForm] = useState(false);
   const [created, setCreated] = useState<ClusterCreate | null>(null);
   const [activeStep, setActiveStep] = useState<IntegrationStep | null>(null);
@@ -246,33 +248,72 @@ export default function ManagedInfraPage() {
         />
       </section>
 
-      {/* ── Kubernetes (kubeconfig) ────────────────────────────────────── */}
+      {/* ── Kubernetes clusters (kubeconfig | tunnel-federated) ────────── */}
       <section className="space-y-3">
         <SectionHeader
-          title="Kubernetes"
-          subtitle="Clusters Daalu reads via a kubeconfig. The agent's read-only kubectl tools use this to inspect pods, events, and logs during triage and to apply approved changes. Local/laptop installs and the demo lab attach a cluster this way — it shows connected once a tool call against it succeeds."
+          title="Kubernetes clusters"
+          subtitle="The clusters Daalu operates. Pick how this one is connected — most installs use a kubeconfig."
         />
-        <ProviderTable
-          steps={kubernetesSteps}
-          configByProvider={configByProvider}
-          onConnect={(step) => setActiveStep(step)}
-        />
-      </section>
-
-      {/* ── Kubernetes clusters (tunnel-federated, optional) ───────────── */}
-      <section className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <SectionHeader
-            title="Kubernetes clusters (tunnel-federated)"
-            subtitle="Optional: clusters reachable over the WireGuard mesh for fleets that aren't publicly routable. Onboarding generates a one-shot install snippet you paste on the cluster; the edge container registers itself and the tunnel comes up. (Requires the cluster-tunnel backend — not enabled on a basic install.)"
-          />
+        <div className="inline-flex rounded-lg border border-line overflow-hidden text-xs">
           <button
-            onClick={() => setShowClusterForm(true)}
-            className="text-xs h-9 px-3 rounded-lg bg-accent-cyan/15 border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/25 flex items-center gap-1.5 shrink-0"
+            type="button"
+            onClick={() => setK8sTab("kubeconfig")}
+            className={cn(
+              "px-3 py-1.5 transition-colors",
+              k8sTab === "kubeconfig"
+                ? "bg-accent-cyan/15 text-fg"
+                : "text-muted hover:text-fg"
+            )}
           >
-            <Plus className="h-3.5 w-3.5" /> Onboard cluster
+            Kubeconfig
+          </button>
+          <button
+            type="button"
+            onClick={() => setK8sTab("tunnel")}
+            className={cn(
+              "px-3 py-1.5 border-l border-line transition-colors",
+              k8sTab === "tunnel"
+                ? "bg-accent-cyan/15 text-fg"
+                : "text-muted hover:text-fg"
+            )}
+          >
+            Tunnel-federated
           </button>
         </div>
+
+        {k8sTab === "kubeconfig" && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted max-w-[860px]">
+              Daalu reads the cluster with a kubeconfig you paste. Its read-only
+              kubectl tools inspect pods, events, and logs during triage and
+              apply approved changes. Local/laptop installs and the demo lab
+              attach a cluster this way — it shows connected once a tool call
+              against it succeeds.
+            </p>
+            <ProviderTable
+              steps={kubernetesSteps}
+              configByProvider={configByProvider}
+              onConnect={(step) => setActiveStep(step)}
+            />
+          </div>
+        )}
+
+        {k8sTab === "tunnel" && (
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-xs text-muted max-w-[760px]">
+                For clusters that aren&apos;t publicly routable: paste a one-shot
+                install snippet on the cluster and an edge container registers
+                itself over a WireGuard mesh. Requires the cluster-tunnel backend
+                — not enabled on a basic install.
+              </p>
+              <button
+                onClick={() => setShowClusterForm(true)}
+                className="text-xs h-9 px-3 rounded-lg bg-accent-cyan/15 border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/25 flex items-center gap-1.5 shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" /> Onboard cluster
+              </button>
+            </div>
 
         {showClusterForm && (
           <OnboardForm
@@ -366,6 +407,8 @@ export default function ManagedInfraPage() {
             </tbody>
           </table>
         </div>
+          </div>
+        )}
       </section>
 
       {activeStep && (
