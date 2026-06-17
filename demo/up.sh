@@ -22,6 +22,13 @@ CLUSTER="daalu-demo"
 NODE="${CLUSTER}-control-plane"          # kind names the node container this
 KIND_NET="kind"                           # docker network kind uses
 DAALU_API="${DAALU_API:-http://localhost:8000}"
+# Host address the monitoring NodePorts are published on (browser access only;
+# Daalu reaches the cluster over the kind network, not these). Default 0.0.0.0.
+# Override when localhost ports are taken (e.g. a VS Code remote forwarding the
+# ports, or another tool) — e.g. DEMO_BIND_ADDR=172.17.0.1 to bind the Docker
+# bridge IP instead. Then browse the stack at http://<DEMO_BIND_ADDR>:<port>.
+BIND_ADDR="${DEMO_BIND_ADDR:-0.0.0.0}"
+BROWSE_HOST="$BIND_ADDR"; [ "$BIND_ADDR" = "0.0.0.0" ] && BROWSE_HOST="localhost"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 
@@ -54,7 +61,13 @@ if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
   ok "kind cluster '${CLUSTER}' already exists"
 else
   say "Creating kind cluster '${CLUSTER}'"
-  kind create cluster --name "$CLUSTER" --config "${HERE}/kind-config.yaml"
+  # Render the kind config with the chosen bind address (the committed config
+  # uses 0.0.0.0; DEMO_BIND_ADDR swaps it without editing the tracked file).
+  RENDERED_CFG="$(mktemp)"
+  trap 'rm -f "$RENDERED_CFG"' EXIT
+  sed "s/listenAddress: \"0.0.0.0\"/listenAddress: \"${BIND_ADDR}\"/" \
+    "${HERE}/kind-config.yaml" > "$RENDERED_CFG"
+  kind create cluster --name "$CLUSTER" --config "$RENDERED_CFG"
   ok "cluster created"
 fi
 kubectl config use-context "kind-${CLUSTER}" >/dev/null
@@ -101,8 +114,14 @@ ok "dummy-app + metrics-app running (healthy)"
 # Put Daalu's containers on the same docker network as the kind node so they can
 # reach the API server (valid TLS via the internal kubeconfig) and the NodePort
 # services by name.
-say "Connecting Daalu's containers to the '${KIND_NET}' network"
-mapfile -t DAALU_CIDS < <(cd "$REPO" && docker compose ps -q 2>/dev/null)
+say "Connecting Daalu's cluster-facing containers to the '${KIND_NET}' network"
+# Only the services that actually reach the cluster need this: api + agents
+# (kubectl tools), worker (polls the cluster's Alertmanager/Loki), executor
+# (applies approved kubectl changes). Deliberately NOT the frontend — its
+# Next.js server binds a single interface and a second Docker network breaks
+# its published port (the UI goes unreachable) — nor postgres/redis (internal
+# only). The frontend talks to the API over the default compose network.
+mapfile -t DAALU_CIDS < <(cd "$REPO" && docker compose ps -q api worker agents executor 2>/dev/null)
 [ "${#DAALU_CIDS[@]}" -gt 0 ] || die "found no running Daalu containers (docker compose ps empty in $REPO)."
 for cid in "${DAALU_CIDS[@]}"; do
   docker network connect "$KIND_NET" "$cid" >/dev/null 2>&1 || true
@@ -141,9 +160,9 @@ cat <<EOF
 ${GRN}✔ Demo lab is up.${RST}
 
   Browse the stack (optional):
-     Grafana:       http://localhost:3001   (admin / admin)
-     Prometheus:    http://localhost:9090
-     Alertmanager:  http://localhost:9093
+     Grafana:       http://${BROWSE_HOST}:3001   (admin / admin)
+     Prometheus:    http://${BROWSE_HOST}:9090
+     Alertmanager:  http://${BROWSE_HOST}:9093
 
   Daalu is now watching this cluster. To run the demo:
      ${BOLD}./demo/break.sh${RST}      # introduce an issue (default: a bad image)

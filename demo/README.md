@@ -49,6 +49,21 @@ Optional browser access (published by the kind cluster):
 | Prometheus | http://localhost:9090 |
 | Alertmanager | http://localhost:9093 |
 
+### Environment overrides
+
+The scripts work out of the box on a clean laptop. Two env vars cover the
+common exceptions:
+
+| Variable | When to set it |
+|----------|----------------|
+| `DAALU_API` | Your Daalu API isn't on `http://localhost:8000` — e.g. you published the API on a different host/port. Set it to the API base, e.g. `DAALU_API=http://172.17.0.1:18000`. |
+| `DEMO_BIND_ADDR` | The host ports `9090` / `9093` / `3001` are already taken (e.g. a VS Code remote session forwards them on `localhost`). Set `DEMO_BIND_ADDR=172.17.0.1` to publish the monitoring NodePorts on the Docker bridge IP instead — then browse the stack at `http://172.17.0.1:<port>`. |
+
+```bash
+# Example: API remapped + localhost monitoring ports busy (e.g. VS Code remote):
+DAALU_API=http://172.17.0.1:18000 DEMO_BIND_ADDR=172.17.0.1 ./demo/up.sh
+```
+
 ## The demo, step by step
 
 1. **`./demo/up.sh`** — creates the cluster, installs monitoring + Loki, deploys
@@ -109,11 +124,28 @@ browser; Daalu doesn't use them.
 ## Troubleshooting
 
 - **`up.sh` says Daalu isn't reachable** — start Daalu first (`./install.sh`),
-  confirm `curl localhost:8000/health` works, then re-run.
+  confirm `curl localhost:8000/health` works, then re-run. If you published the
+  API on a different host/port, set `DAALU_API` (see *Environment overrides*).
+- **`failed to create cluster: … host port … already in use`** — something else
+  holds `9090`/`9093`/`3001` (often a VS Code remote forwarding them). Re-run
+  with `DEMO_BIND_ADDR=172.17.0.1 ./demo/up.sh` (see *Environment overrides*).
+- **`kind … config.lock: permission denied`** — your `~/.kube` is root-owned
+  (e.g. a kubeconfig copied with `sudo` earlier). Fix:
+  `sudo chown -R "$USER":"$USER" ~/.kube`, then re-run.
 - **No alert in Daalu after a few minutes** — check it's firing upstream first:
   `./demo/status.sh` (or open http://localhost:9093). If it's firing there but not
   in Daalu, confirm the `prometheus` integration exists (UI → Integrations) and
   that Daalu's containers are on the kind network (`docker network inspect kind`).
+- **Alert is firing in Alertmanager but never appears in Daalu** — first give it
+  a full cycle: Daalu polls Alertmanager every ~2 min. If after ~4 min
+  `./demo/status.sh` shows it firing upstream but Daalu → Alerts is still empty,
+  nudge the event consumer: `docker compose restart agents`, then wait one more
+  poll. (The agent then drains any pending alert events.)
+- **Agent reasoning is very slow** — on a CPU-only laptop a 14B model triages at
+  roughly a token/second, so the agent's investigate→propose step can take
+  *many minutes* per alert. That's expected; for a snappy demo point Daalu at a
+  smaller local model (e.g. `qwen2.5:7b`) or a GPU/hosted endpoint
+  (see [../docs/03-llm-and-sovereignty.md](../docs/03-llm-and-sovereignty.md)).
 - **Agent can't act on the cluster** — verify the `kubernetes` integration is
   registered and that the connect step found your containers
   (`cd <repo> && docker compose ps`).

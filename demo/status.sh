@@ -3,6 +3,8 @@
 #   ./demo/status.sh
 set -euo pipefail
 NS="daalu-demo"
+# Match up.sh's DEMO_BIND_ADDR (where the monitoring NodePorts are published).
+BROWSE_HOST="${DEMO_BIND_ADDR:-localhost}"; [ "$BROWSE_HOST" = "0.0.0.0" ] && BROWSE_HOST="localhost"
 BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
 kubectl config use-context kind-daalu-demo >/dev/null 2>&1 || true
 
@@ -19,14 +21,14 @@ kubectl -n "$NS" get deploy metrics-app -o jsonpath='{.spec.template.spec.contai
 echo
 
 printf "\n%s\n" "${BOLD}Firing alerts (Alertmanager)${RST}"
-# Reachable on the host via the kind extraPortMapping (localhost:9093).
+# Reachable on the host via the kind extraPortMapping (see DEMO_BIND_ADDR).
 if command -v python3 >/dev/null 2>&1; then
-  curl -fsS "http://localhost:9093/api/v2/alerts?active=true" 2>/dev/null \
+  curl -fsS "http://${BROWSE_HOST}:9093/api/v2/alerts?active=true" 2>/dev/null \
     | python3 -c 'import json,sys;
 a=json.load(sys.stdin)
 fired=[x["labels"].get("alertname") for x in a if x.get("status",{}).get("state")=="active"]
 print("  " + (", ".join(fired) if fired else "(none firing)"))' 2>/dev/null \
-    || echo "  (Alertmanager not reachable on :9093 yet)"
+    || echo "  (Alertmanager not reachable on ${BROWSE_HOST}:9093 yet)"
 else
-  echo "  ${DIM}(install python3 to summarize alerts; or open http://localhost:9093)${RST}"
+  echo "  ${DIM}(install python3 to summarize alerts; or open http://${BROWSE_HOST}:9093)${RST}"
 fi
