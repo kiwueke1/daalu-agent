@@ -196,6 +196,12 @@ export default function ManagedInfraPage() {
   const observabilitySteps: IntegrationStep[] = OBSERVABILITY_PROVIDER_IDS.map(
     (id) => STEPS_BY_ID[id]
   ).filter((s): s is IntegrationStep => !!s);
+  // The kubeconfig-onboarded cluster (how local/laptop installs and the demo
+  // lab attach a cluster). The WireGuard tunnel list below is a separate,
+  // optional path that needs the cluster-tunnel backend.
+  const kubernetesSteps: IntegrationStep[] = [STEPS_BY_ID["kubernetes"]].filter(
+    (s): s is IntegrationStep => !!s
+  );
 
   return (
     <div className="space-y-8 max-w-[1200px]">
@@ -240,12 +246,25 @@ export default function ManagedInfraPage() {
         />
       </section>
 
-      {/* ── Kubernetes clusters (VPN-onboarded) ────────────────────────── */}
+      {/* ── Kubernetes (kubeconfig) ────────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionHeader
+          title="Kubernetes"
+          subtitle="Clusters Daalu reads via a kubeconfig. The agent's read-only kubectl tools use this to inspect pods, events, and logs during triage and to apply approved changes. Local/laptop installs and the demo lab attach a cluster this way — it shows connected once a tool call against it succeeds."
+        />
+        <ProviderTable
+          steps={kubernetesSteps}
+          configByProvider={configByProvider}
+          onConnect={(step) => setActiveStep(step)}
+        />
+      </section>
+
+      {/* ── Kubernetes clusters (tunnel-federated, optional) ───────────── */}
       <section className="space-y-3">
         <div className="flex items-start justify-between gap-4">
           <SectionHeader
-            title="Kubernetes clusters"
-            subtitle="Customer clusters reachable over the WireGuard mesh. Onboarding generates a one-shot install snippet you paste on the customer cluster; the edge container then registers itself and the tunnel comes up."
+            title="Kubernetes clusters (tunnel-federated)"
+            subtitle="Optional: clusters reachable over the WireGuard mesh for fleets that aren't publicly routable. Onboarding generates a one-shot install snippet you paste on the cluster; the edge container registers itself and the tunnel comes up. (Requires the cluster-tunnel backend — not enabled on a basic install.)"
           />
           <button
             onClick={() => setShowClusterForm(true)}
