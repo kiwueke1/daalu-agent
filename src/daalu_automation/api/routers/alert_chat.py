@@ -537,19 +537,30 @@ async def _ask_model(
         )
     except LLMUnavailable as e:
         logger.warning("alert_chat.llm_unavailable", error=str(e))
+        err = str(e).lower()
+        if "timed out" in err or "timeout" in err:
+            # The tier IS configured and reachable — it just didn't answer in
+            # time. Almost always a large model on CPU that can't complete an
+            # agentic tool-using turn within the request window. Say that,
+            # rather than the misleading "no tier configured".
+            text = (
+                "The model didn't respond in time. The configured LLM is "
+                "reachable but too slow to finish an agentic tool-using turn "
+                "within the request window — typical for a large model on CPU. "
+                "Point Daalu at a faster endpoint (a GPU-served vLLM model, or "
+                "a hosted provider via ANTHROPIC_API_KEY) for live triage. "
+                "Acknowledge / Resolve still work."
+            )
+        else:
+            text = (
+                "AI copilot is offline — no LLM tier is configured. Set "
+                "LLM_API_KEY/LLM_BASE_URL (DeepSeek/OpenAI) or a local vLLM "
+                "endpoint to enable remediation chat. The Acknowledge / "
+                "Resolve buttons still work."
+            )
         return {
             "stop_reason": "end_turn",
-            "content": [
-                {
-                    "type": "text",
-                    "text": (
-                        "AI copilot is offline — no LLM tier is configured. Set "
-                        "LLM_API_KEY/LLM_BASE_URL (DeepSeek/OpenAI) or a local "
-                        "vLLM endpoint to enable remediation chat. The "
-                        "Acknowledge / Resolve buttons still work."
-                    ),
-                }
-            ],
+            "content": [{"type": "text", "text": text}],
         }
 
     blocks: list[dict[str, Any]] = []
