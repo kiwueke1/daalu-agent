@@ -93,7 +93,48 @@ helm upgrade --install gpu-operator nvidia/gpu-operator \
   --wait --timeout 15m
 ok "GPU Operator installed"
 
+# ── 5. Telemetry: Prometheus + Loki (for AI Factory + observability) ─────────
+#  GPU metrics (DCGM) already ship with the GPU Operator's dcgm-exporter.
+#  Prometheus scrapes them (and the operator's ServiceMonitor); Loki collects
+#  pod logs. Daalu's AI Factory reads Prometheus for GPU telemetry, and you
+#  wire both into Managed Infra → Observability from the UI after onboarding.
+#  Set TELEMETRY=false to skip (AI Factory GPU charts will then be empty).
+TELEMETRY="${TELEMETRY:-true}"
+PROM_NODEPORT="${PROM_NODEPORT:-30090}"
+LOKI_NODEPORT="${LOKI_NODEPORT:-30310}"
+if [ "$TELEMETRY" = "true" ]; then
+  say "Installing Prometheus + Loki (telemetry for AI Factory / observability)"
+  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null 2>&1 || true
+  helm repo add grafana https://grafana.github.io/helm-charts >/dev/null 2>&1 || true
+  helm repo update >/dev/null
+  # kube-prometheus-stack brings the Prometheus Operator (so dcgm-exporter's
+  # ServiceMonitor is scraped automatically). Grafana/Alertmanager off to stay
+  # light; Prometheus is exposed on a NodePort so the Daalu stack can reach it.
+  helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+    --namespace monitoring --create-namespace \
+    --set grafana.enabled=false \
+    --set alertmanager.enabled=false \
+    --set prometheus.service.type=NodePort \
+    --set prometheus.service.nodePort="${PROM_NODEPORT}" \
+    --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+    --wait --timeout 10m >/dev/null \
+    && ok "Prometheus installed (NodePort ${PROM_NODEPORT})" \
+    || warn "Prometheus install did not complete — check: helm -n monitoring status kube-prometheus-stack"
+  # loki-stack: Loki + promtail (log shipping), single-binary, filesystem store.
+  helm upgrade --install loki grafana/loki-stack \
+    --namespace monitoring \
+    --set loki.service.type=NodePort \
+    --set loki.service.nodePort="${LOKI_NODEPORT}" \
+    --set promtail.enabled=true \
+    --wait --timeout 10m >/dev/null \
+    && ok "Loki installed (NodePort ${LOKI_NODEPORT})" \
+    || warn "Loki install did not complete — check: helm -n monitoring status loki"
+else
+  warn "TELEMETRY=false — skipping Prometheus/Loki (AI Factory GPU charts will be empty)"
+fi
+
 # ── Done ─────────────────────────────────────────────────────────────────────
+NODE_IP="$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null || true)"
 cat <<EOF
 
 ${GRN}✔ Cluster ready.${RST}
@@ -108,10 +149,17 @@ ${GRN}✔ Cluster ready.${RST}
      kubectl -n gpu-operator get pods
      kubectl get nodes -o json | grep nvidia.com/gpu
 
-  Next, serve a model on this GPU (one command):
-     sudo cp /etc/rancher/k3s/k3s.yaml \$HOME/.kube/config    # if you haven't yet
+  Serve a model on this GPU (one command):
      ./scripts/serve-model.sh        # deploys vLLM + an open-weights model
 
-  That prints the LLM_BASE_URL to drop into Daalu's .env. Then run ./install.sh.
-  Details: docs/03-llm-and-sovereignty.md.
+  Telemetry endpoints (wire these into Daalu from the UI after onboarding):
+     • Prometheus (GPU/DCGM metrics):  http://${NODE_IP:-<node-ip>}:${PROM_NODEPORT}
+     • Loki (logs):                    http://${NODE_IP:-<node-ip>}:${LOKI_NODEPORT}
+
+  Then, in the Daalu UI:
+     • Managed infra → Clusters: add this cluster (paste its kubeconfig)
+     • AI Factory: onboard the GPU and set the vLLM endpoint as the inference source
+     • Managed infra → Observability: add the Prometheus + Loki URLs above
+
+  Full walkthrough: docs/04-deployment.md (Part 2).
 EOF

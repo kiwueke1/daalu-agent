@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
   Bot,
+  Boxes,
   Cable,
+  Cpu,
   FileText,
   HelpCircle,
   Home,
@@ -16,9 +18,14 @@ import {
 import { cn } from "@/lib/utils";
 
 // Open-source single-tenant build: the nav lists only the surfaces backed
-// by the included API. The commercial hub features (workspace/coding,
-// AI Factory / GPU, managed-infra, billing) are not part of this repo;
-// their page routes still exist in the tree but are intentionally unlinked.
+// by the included API. Some commercial hub features (workspace/coding,
+// AI Factory / GPU, billing) are not part of this repo; their page routes
+// still exist in the tree but are intentionally unlinked.
+//
+// "Managed infra" is the open-source infra-connection hub (Kubernetes, cloud,
+// observability, ticketing, source of truth) — it reuses the included
+// /integrations API, so it ships here. It omits the commercial-only
+// WireGuard cluster-federation tunnels and the NV-CM network stack.
 //
 // Devices and Proposals are tabs inside /operations (the SoT hub). The
 // /devices/[id] and /proposals/[id] detail pages still resolve directly.
@@ -29,6 +36,8 @@ const NAV = [
   { href: "/automations", label: "Automations", icon: Workflow },
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/alerts", label: "Alerts", icon: AlertTriangle },
+  { href: "/managed-infra", label: "Managed infra", icon: Boxes },
+  { href: "/ai-factory", label: "AI Factory", icon: Cpu },
   { href: "/integrations", label: "Integrations", icon: Cable },
 ];
 

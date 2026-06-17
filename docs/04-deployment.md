@@ -1,310 +1,51 @@
 # Deploying Daalu
 
-**Daalu can't do anything without an inference endpoint** — an OpenAI-compatible
-LLM API is the agent's brain. So deployment is two steps, **and inference comes
-first**:
+Daalu is a self-hosted AI agent for infrastructure and operations. Deployment is
+**two parts, and you install Daalu first**:
 
-1. **Get an inference endpoint.** Already run one (Ollama, vLLM, …)? This step is
-   done. Don't have one? Stand up your own in
-   **[Part A](#part-a-deploy-your-own-gpu-inference-server)** first — or, for a
-   quick local look, use the bundled CPU Ollama ([B4](#b4-install--docker-compose)).
-2. **Install Daalu** and point it at that endpoint — **[Part B](#part-b-install-daalu)**.
+1. **[Part 1 — Install Daalu](#part-1-install-daalu).** Stand up the agent + UI on
+   Docker Compose (a laptop, a VM, or a server). Daalu boots immediately.
+2. **[Part 2 — Give it inference (and, optionally, a GPU cluster)](#part-2-inference--gpu).**
+   Daalu's "brain" is an OpenAI-compatible LLM endpoint. Point it at one — either a
+   **minimal laptop model** for a quick feel, or a **production GPU cluster** that
+   Daalu also operates and uses as its inference source.
 
-The guide documents them as **Part A (the inference server)** and **Part B
-(Daalu)**, but you *run* them in the order your situation calls for:
+> **Why Daalu first?** `install.sh` stands up the whole stack and the UI right away
+> — you can click around, wire integrations, and watch the services boot before any
+> GPU exists. The agent simply can't *reason* until you give it an inference endpoint
+> in Part 2. So install Daalu, then attach inference.
 
-| Your situation | Order to follow |
-|----------------|-----------------|
-| I already have an OpenAI-compatible endpoint (Ollama, vLLM, …) | **Part B only** |
-| I have a machine/rack with NVIDIA GPU(s) but no model server | **Part A → then Part B** |
-| I just want to try it on my laptop | **Part A → [A3](#a3-laptop-or-single-vm-no-kubernetes--simplest)** (or the bundled Ollama in [B4](#b4-install--docker-compose)) **→ then Part B** |
-
-Each part has **its own prerequisites** — see [A1](#a1-prerequisites-for-the-gpu-server)
-(inference) and [B1](#b1-prerequisites-for-daalu) (Daalu).
-
-> **Why inference first?** `install.sh` (Part B) *points* Daalu at an inference
-> endpoint — it does **not** stand one up for you. With no endpoint, Daalu still
-> installs and boots, but the agent can't reason until you give it one. Set up (or
-> have on hand) your endpoint before Part B so the agent works the moment it's up.
+| Your situation | Path |
+|----------------|------|
+| I just want to try Daalu on my laptop | **Part 1** → **[Part 2A](#2a-minimal-laptop-inference-for-a-feel)** (minimal local model) |
+| I already have an OpenAI-compatible endpoint (Ollama, vLLM, …) | **Part 1** → **[Part 2C](#2c-point-daalu-at-an-existing-endpoint)** |
+| I want a production AI/GPU setup | **Part 1** → **[Part 2B](#2b-production-a-gpu-kubernetes-cluster)** (k8s + GPU + onboarding) |
 
 ---
 
-## Part A: Deploy your own GPU inference server
+## Part 1: Install Daalu
 
-This part is optional and independent of Part B. It stands up a **sovereign**
-inference server — an open-weights model running on *your* hardware, exposed over
-an OpenAI-compatible API — so no prompt or code ever leaves your network. Skip it
-if you already have an endpoint.
+- [1.1 Prerequisites](#11-prerequisites)
+- [1.2 What gets deployed](#12-what-gets-deployed)
+- [1.3 Where to install it](#13-where-to-install-it)
+- [1.4 Install — Docker Compose](#14-install--docker-compose)
+- [1.5 Configuration reference](#15-configuration-reference)
+- [1.6 Exposing Daalu to others (authentication)](#16-exposing-daalu-to-others-authentication)
+- [1.7 Running Daalu on Kubernetes](#17-running-daalu-on-kubernetes)
+- [1.8 Upgrades, backups, troubleshooting](#18-upgrades-backups-troubleshooting)
 
-It covers **two routes**, and [A2](#a2-which-approach-laptop-or-cluster) helps you
-pick: a no-Kubernetes path for a single machine (your laptop, a VM, or one
-workstation), and a k3s path for a real cluster (a dedicated GPU box, or several).
-
-- [A1. Prerequisites (for the GPU server)](#a1-prerequisites-for-the-gpu-server)
-- [A2. Which approach: laptop or cluster?](#a2-which-approach-laptop-or-cluster)
-- [A3. Laptop or single VM (no Kubernetes — simplest)](#a3-laptop-or-single-vm-no-kubernetes--simplest)
-- [A4. Single-node k3s (one GPU box or VM)](#a4-single-node-k3s-one-gpu-box-or-vm)
-- [A5. Multi-node k3s (a control node + GPU workers)](#a5-multi-node-k3s-a-control-node--gpu-workers)
-- [A6. Deploy a model on the cluster](#a6-deploy-a-model-on-the-cluster)
-- [A7. Point Daalu at it](#a7-point-daalu-at-it)
-
-### A1. Prerequisites (for the GPU server)
-
-These are separate from Part B's prerequisites, and the exact list depends on the
-route you pick in [A2](#a2-which-approach-laptop-or-cluster).
-
-**Any route:**
-- **root / sudo** and **outbound internet** (to pull images + model weights). The
-  machine can be your **laptop**, a **VM**, a **workstation**, or a **server**.
-
-**Laptop / single-VM route (A3) — NVIDIA is *not* required:**
-- **OS:** Linux (Ubuntu 22.04 / 24.04 preferred) **or macOS** — Ollama ships for both.
-- **Any modern AI-capable GPU works.** ~16 GB of VRAM / unified memory comfortably
-  runs a 7–8B model; more → bigger models. Specifically:
-  - **Apple Silicon** (M1–M4 MacBook) — Ollama uses the **Metal** GPU automatically.
-    Excellent and zero-config.
-  - **NVIDIA** — used automatically (and the only option for the Docker-vLLM choice,
-    which also needs **Docker** + the **NVIDIA Container Toolkit**).
-  - **Intel Arc / AMD** (e.g. a Copilot+ laptop like the Galaxy Book5) — works, but
-    *not* through stock Ollama, which falls back to CPU on these. Use Ollama's
-    experimental **Vulkan** backend or an **IPEX-LLM** build — see the note in
-    [A3 Option 1](#a3-laptop-or-single-vm-no-kubernetes--simplest).
-  - **CPU-only** (no usable GPU) — works but slow; fine for a quick look, not real use.
-
-**k3s cluster route (A4/A5) needs NVIDIA, plus:** a **Linux machine** (Ubuntu 22.04 /
-24.04 preferred) with an **NVIDIA GPU** (the GPU Operator and vLLM path are
-NVIDIA-only); `helm` and `kubectl` (the script installs them if missing); **no
-pre-installed GPU driver** (the GPU Operator installs it, or set `DRIVER=host` to
-reuse one you have); and for **multi-node**, the machines must reach each other on
-the network (k3s uses TCP 6443 for the API server and a flannel VXLAN port — same
-LAN/VPC is simplest).
-
-### A2. Which approach: laptop or cluster?
-
-| You have… | Use | Why |
-|-----------|-----|-----|
-| A **laptop** or a single machine you just want to try Daalu on | **No Kubernetes** — Ollama or Docker vLLM ([A3](#a3-laptop-or-single-vm-no-kubernetes--simplest)) | Simplest; one binary/container, no cluster to run |
-| A **dedicated GPU box or VM** you'll run as a server | **Single-node k3s** ([A4](#a4-single-node-k3s-one-gpu-box-or-vm)) | A real cluster you can grow; the agent can also operate it |
-| **Several GPU machines**, or you want to scale capacity | **Multi-node k3s** ([A5](#a5-multi-node-k3s-a-control-node--gpu-workers)) | Add GPUs by joining nodes; the scheduler spreads models across them |
-
-**Is Kubernetes the best way to do this on a laptop? No.** On a single dev machine,
-k3s adds a cluster to babysit for zero benefit — run **Ollama** (or **vLLM in
-Docker**) and you get the exact same OpenAI-compatible endpoint with none of the
-overhead. Reach for k3s ([k3s](https://k3s.io) — a single ~70 MB binary, one
-command, conformant Kubernetes) only when you want a **durable, scalable cluster**
-or **more than one GPU node**. That's why both paths exist below.
-
-### A3. Laptop or single VM (no Kubernetes — simplest)
-
-You can do everything on one machine — even just your Ubuntu laptop — and end up
-with a working sovereign endpoint for Daalu. Pick one option.
-
-**Option 1 — Ollama (easiest).**
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh   # Linux/macOS
-ollama pull qwen2.5:14b                          # smaller box? try qwen2.5:7b
-# Ollama now serves an OpenAI-compatible API at http://localhost:11434/v1 and
-# uses your GPU automatically on Apple Silicon (Metal) and NVIDIA — CPU otherwise.
-```
-
-Then set in Daalu's `.env`:
-
-```ini
-# If Daalu runs via docker compose, use host.docker.internal; if you run Daalu
-# natively on the same machine, use localhost.
-LLM_BASE_URL=http://host.docker.internal:11434/v1
-LLM_API_KEY=ollama
-LLM_MODEL=qwen2.5:14b
-LLM_MODEL_CLASSIFIER=qwen2.5:14b
-```
-
-> **On an Intel Arc / AMD laptop (e.g. a Copilot+ PC like the Samsung Galaxy Book5)?**
-> Stock Ollama runs **CPU-only** on these — but the **GPU** can accelerate inference:
-> use Ollama's experimental **Vulkan** backend (`OLLAMA_VULKAN=1`, recent builds) or
-> Intel's **IPEX-LLM** Ollama build (oneAPI/SYCL). Note that the integrated **NPU**
-> (the "40–47 TOPS AI chip" Copilot+ advertises) is **not** used by Ollama today — it
-> targets Windows AI / OpenVINO workloads, not llama.cpp. The **Arc GPU** is what does
-> the LLM work. Once it's running, the endpoint and `.env` lines above are identical.
-
-**Option 2 — vLLM in Docker (NVIDIA GPU, OpenAI-compatible).** Higher throughput
-than Ollama; needs the NVIDIA Container Toolkit on the host.
-
-```bash
-docker run --gpus all -p 8000:8000 vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct --served-model-name qwen2.5-7b
-```
-
-```ini
-LLM_BASE_URL=http://host.docker.internal:8000/v1
-LLM_API_KEY=novllmkeyneeded
-LLM_MODEL=qwen2.5-7b
-LLM_MODEL_CLASSIFIER=qwen2.5-7b
-```
-
-That's the whole inference setup for a single machine — **continue with
-[Part B](#part-b-install-daalu)** and skip A4–A7 (those are the cluster routes).
-
-### A4. Single-node k3s (one GPU box or VM)
-
-Use this for a dedicated GPU box or VM you want to run as a real (single-node)
-cluster — one machine that is both the control plane and the GPU worker:
-
-```bash
-# Installs k3s + the NVIDIA GPU Operator (which installs the GPU driver, container
-# toolkit, and device plugin). DRIVER=operator (default) needs no host driver;
-# DRIVER=host reuses a driver you already installed.
-sudo ./scripts/install-gpu-k3s.sh
-
-# Use the cluster as your user:
-sudo cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-kubectl get nodes
-```
-
-Then jump to [A6](#a6-deploy-a-model-on-the-cluster) to serve a model.
-
-### A5. Multi-node k3s (a control node + GPU workers)
-
-Use this when you have several machines — e.g. one control node plus a few GPU
-boxes, or several GPU boxes for capacity. k3s makes the joins one command each.
-
-**Step 1 — Create the cluster on the first node.** Run the same script on the node
-you want as the control plane. It can itself have a GPU or not (if it's CPU-only,
-the script's GPU check just warns — that's fine; the GPU Operator still rolls out
-to the worker nodes you add next).
-
-```bash
-sudo ./scripts/install-gpu-k3s.sh        # installs k3s server + GPU Operator
-```
-
-**Step 2 — Get the join token + the server URL** (run on the control node):
-
-```bash
-sudo cat /var/lib/rancher/k3s/server/node-token     # the join token
-hostname -I | awk '{print $1}'                       # the control node's IP
-```
-
-**Step 3 — Join each GPU worker node.** On every GPU machine, install the k3s
-**agent** pointed at the control node:
-
-```bash
-curl -sfL https://get.k3s.io | \
-  K3S_URL=https://<control-node-ip>:6443 \
-  K3S_TOKEN=<token-from-step-2> sh -
-```
-
-That's the whole join. The GPU Operator installed in step 1 runs as DaemonSets, so
-it automatically extends to each new node — installing the driver, container
-toolkit, and device plugin there — and the node's GPUs become schedulable. No
-extra GPU setup per worker.
-
-**Step 4 — Verify** (from the control node):
-
-```bash
-kubectl get nodes                                            # all nodes Ready
-kubectl get nodes -o custom-columns=NAME:.metadata.name,GPUs:.status.allocatable.'nvidia\.com/gpu'
-```
-
-You should see the GPU count populated on each GPU worker. Now serve a model — the
-scheduler places it on a node that has a free GPU.
-
-> **Driver mode on workers:** the operator manages drivers cluster-wide based on
-> how you installed it in step 1. If you used `DRIVER=host` there, install the
-> NVIDIA driver on each worker yourself too; with the default `DRIVER=operator`,
-> workers need nothing but the GPU hardware.
-
-### A6. Deploy a model on the cluster
-
-This is the **k3s** model-deploy step (for A4 / A5). It works the same for
-single-node and multi-node — Kubernetes schedules the model onto a node with a
-free GPU:
-
-```bash
-./scripts/serve-model.sh
-```
-
-This deploys [vLLM](https://docs.vllm.ai) serving an **open** model
-(`Qwen/Qwen2.5-7B-Instruct` by default — no Hugging Face token needed) and exposes
-an OpenAI-compatible `/v1` endpoint on a NodePort. When it finishes it prints the
-exact `LLM_BASE_URL` / `LLM_MODEL` to use.
-
-Tuning (all optional env vars):
-
-| Want | Set |
-|------|-----|
-| A bigger / smaller model | `MODEL=Qwen/Qwen2.5-14B-Instruct SERVED_NAME=qwen2.5-14b ./scripts/serve-model.sh` |
-| A gated model (e.g. Llama) | `HF_TOKEN=hf_xxx MODEL=meta-llama/Llama-3.1-8B-Instruct ./scripts/serve-model.sh` |
-| Less VRAM use | lower `MAX_LEN` (e.g. `MAX_LEN=4096`) or pick a quantized model |
-| Just print the manifest | `PRINT_ONLY=1 ./scripts/serve-model.sh` (capture for `kubectl apply`) |
-
-Scaling notes:
-- **One model per GPU** is the simplest mental model — a vLLM pod takes a whole
-  GPU. To serve more than one model, run `serve-model.sh` again with a different
-  `SERVED_NAME`/`NODEPORT`; the scheduler spreads them across GPU nodes.
-- The **NodePort is reachable on any node's IP** (`http://<any-node-ip>:30800/v1`),
-  so it doesn't matter which worker the model landed on.
-
-### A7. Point Daalu at it
-
-(For the laptop route, the `.env` lines are in [A3](#a3-laptop-or-single-vm-no-kubernetes--simplest) instead.)
-
-For the k3s routes, `serve-model.sh` prints the lines to drop into Daalu's `.env`:
-
-```ini
-LLM_BASE_URL=http://<node-ip>:30800/v1     # or host.docker.internal if same host
-LLM_API_KEY=novllmkeyneeded
-LLM_MODEL=qwen2.5-7b
-LLM_MODEL_CLASSIFIER=qwen2.5-7b
-```
-
-Then do (or re-run) [Part B](#part-b-install-daalu). Quick check that the endpoint
-is live before you wire it up:
-
-```bash
-curl http://<node-ip>:30800/v1/models
-```
-
----
-
-## Part B: Install Daalu
-
-> ⚠️ **Have your inference endpoint ready first.** Daalu needs an OpenAI-compatible
-> endpoint to function, and `install.sh` only *points* Daalu at it — it won't create
-> one. No endpoint yet? Do **[Part A](#part-a-deploy-your-own-gpu-inference-server)**
-> first, or start the **bundled CPU Ollama** ([B4](#b4-install--docker-compose)) for
-> a quick local try.
-
-- [B1. Prerequisites (for Daalu)](#b1-prerequisites-for-daalu)
-- [B2. What gets deployed](#b2-what-gets-deployed)
-- [B3. Where to install it](#b3-where-to-install-it)
-- [B4. Install — Docker Compose](#b4-install--docker-compose)
-- [B5. Configuration reference (every variable)](#b5-configuration-reference-every-variable)
-- [B6. Pointing Daalu at your inference](#b6-pointing-daalu-at-your-inference)
-- [B7. Giving the agent a cluster to operate](#b7-giving-the-agent-a-cluster-to-operate)
-- [B8. Wiring real sources](#b8-wiring-real-sources)
-- [B9. Exposing Daalu to others (authentication)](#b9-exposing-daalu-to-others-authentication)
-- [B10. Running Daalu on Kubernetes](#b10-running-daalu-on-kubernetes)
-- [B11. Upgrades, backups, troubleshooting](#b11-upgrades-backups-troubleshooting)
-
-### B1. Prerequisites (for Daalu)
+### 1.1 Prerequisites
 
 To run **Daalu itself** you need:
 
 - **Docker** with the Compose v2 plugin, and ~4 GB free RAM (the simplest path), **or**
 - **Python 3.10+**, **PostgreSQL 14+**, and **Redis 6+** if you run it natively.
-- **An OpenAI-compatible inference endpoint — set up *before* you install Daalu.**
-  Don't have one yet? Stand up your own GPU server in
-  [Part A](#part-a-deploy-your-own-gpu-inference-server), run a local
-  [Ollama](https://ollama.com), or start the bundled CPU Ollama
-  ([B4](#b4-install--docker-compose)) for a quick try.
-- *Optional:* a **kubeconfig** for the cluster you want the agent to operate (can
-  be the same cluster from Part A).
+- *Optional now, required for the agent to reason:* an **OpenAI-compatible inference
+  endpoint** — you attach one in [Part 2](#part-2-inference--gpu).
+- *Optional:* a **kubeconfig** for a cluster you want the agent to operate (you can
+  add this from the UI later — see [Part 2B](#2b-production-a-gpu-kubernetes-cluster)).
 
-> This is the prerequisite list for **Part B only**. Standing up your own GPU
-> inference server has a separate list — see [A1](#a1-prerequisites-for-the-gpu-server).
-
-### B2. What gets deployed
+### 1.2 What gets deployed
 
 Daalu is a small set of processes that all share one image and one database:
 
@@ -323,22 +64,25 @@ The `executor` is deliberately a separate process on a dedicated queue — see
 [the guardrail model](02-agent-and-guardrails.md). You can run everything on one
 host; at scale you'd split `agents`/`worker`/`executor` onto their own nodes.
 
-### B3. Where to install it
+### 1.3 Where to install it
 
 Pick based on who will use it:
 
 | You want… | Run it on | Auth |
 |-----------|-----------|------|
 | A personal trial / single operator | your laptop or a workstation | `LOCAL_NO_AUTH=true` (default) |
-| A shared instance for your team | a small VM/server reachable on your LAN/VPN | front it with an auth proxy ([B9](#b9-exposing-daalu-to-others-authentication)) |
-| Production alongside your workloads | your Kubernetes cluster | auth proxy ([B9](#b9-exposing-daalu-to-others-authentication)) + real Postgres ([B10](#b10-running-daalu-on-kubernetes)) |
+| A shared instance for your team | a small VM/server on your LAN/VPN | front it with an auth proxy ([1.6](#16-exposing-daalu-to-others-authentication)) |
+| Production alongside your workloads | your Kubernetes cluster | auth proxy ([1.6](#16-exposing-daalu-to-others-authentication)) + real Postgres ([1.7](#17-running-daalu-on-kubernetes)) |
 
 > ⚠️ `LOCAL_NO_AUTH=true` disables **all** authentication and runs as one
 > built-in operator. It's perfect for a laptop and unsafe on anything another
-> person can reach over the network. See [B9](#b9-exposing-daalu-to-others-authentication)
+> person can reach over the network. See [1.6](#16-exposing-daalu-to-others-authentication)
 > before exposing Daalu.
 
-### B4. Install — Docker Compose
+### 1.4 Install — Docker Compose
+
+**Clone the repo and run the installer.** `install.sh` is the one-command path —
+run it from the repo root.
 
 ```bash
 git clone <this-repo> daalu && cd daalu
@@ -346,34 +90,30 @@ git clone <this-repo> daalu && cd daalu
 ```
 
 `install.sh` checks Docker is present, creates `.env`, **asks for your inference
-URL** (the one value that matters — it points Daalu at the endpoint you set up
-above; it does **not** stand one up for you), builds images, starts the stack,
-waits for the API to be healthy, and seeds demo data. Flags: `--yes`
-(non-interactive), `--no-seed`.
+URL** (you can accept the default now and set it in Part 2), builds images, starts
+the stack, waits for the API to be healthy, and seeds the default tenant. Flags:
+`--yes` (non-interactive), `--no-seed`.
 
-> **No endpoint at all and just want to watch Daalu boot?** Start the bundled CPU
-> Ollama alongside the stack and point Daalu at it:
->
-> ```bash
-> docker compose --profile ollama up -d           # start a local Ollama container
-> docker compose exec ollama ollama pull qwen2.5:7b
-> # then in .env:
-> #   LLM_BASE_URL=http://ollama:11434/v1
-> #   LLM_MODEL=qwen2.5:7b
-> #   LLM_MODEL_CLASSIFIER=qwen2.5:7b
-> docker compose up -d                            # restart Daalu to load .env
-> ```
->
-> CPU Ollama is **slow** — fine for a first look, not for real use. For anything
-> beyond that, use [Part A](#part-a-deploy-your-own-gpu-inference-server).
+**Verify the stack is healthy.** All services should be `Up`, the API should answer,
+and the UI should load.
+
+```bash
+docker compose ps                         # every service should be "Up" (api/worker/…)
+curl http://localhost:8000/health         # should return an OK/healthy response
+curl -sf http://localhost:8000/docs >/dev/null && echo "API docs reachable"
+# then open the UI in a browser:  http://localhost:3000
+```
+
+> **Docker port already in use?** If another tool (e.g. VS Code's port forwarding)
+> holds `3000`/`8000`/`5432`, either free it or publish Daalu's ports on a specific
+> address (e.g. `172.17.0.1:`) in `docker-compose.yml` so they don't collide.
 
 **Manual equivalent**, if you'd rather drive it yourself:
 
 ```bash
-cp .env.example .env          # then edit .env (at least LLM_BASE_URL / LLM_MODEL)
+cp .env.example .env          # then edit .env (set LLM_* in Part 2)
 docker compose up --build -d
 docker compose exec api daalu seed         # ensure the default tenant
-docker compose exec api daalu seed-demo    # optional synthetic events
 # UI: http://localhost:3000   API: http://localhost:8000/docs
 ```
 
@@ -384,10 +124,12 @@ docker compose logs -f agents     # watch the agent reason
 docker compose ps                 # service health
 docker compose down               # stop (keeps data)
 docker compose down -v            # stop and WIPE the database
-docker compose --profile ollama up -d   # also run a bundled CPU Ollama
 ```
 
-### B5. Configuration reference (every variable)
+Daalu is now running. The agent won't reason yet — give it an endpoint in
+**[Part 2](#part-2-inference--gpu)**.
+
+### 1.5 Configuration reference
 
 All configuration is environment variables (read from `.env`). Defaults are
 fine for local use; the ones you'll touch are marked **★**.
@@ -397,8 +139,8 @@ fine for local use; the ones you'll touch are marked **★**.
 |----------|---------|---------|
 | `ENVIRONMENT` | `development` | `development` enables `/docs`; use `production` when exposed |
 | `LOG_LEVEL` | `INFO` | `DEBUG` for verbose logs |
-| `LOCAL_NO_AUTH` | `true` | **★** Skip all auth; run as one local operator. See [B9](#b9-exposing-daalu-to-others-authentication) |
-| `SECRET_KEY` | `change-me` | **★** Signs personal-access-tokens. Set a long random value if you mint any |
+| `LOCAL_NO_AUTH` | `true` | **★** Skip all auth; run as one local operator. See [1.6](#16-exposing-daalu-to-others-authentication) |
+| `SECRET_KEY` | `change-me` | **★** Signs personal-access-tokens + encrypts stored secrets. Set a long random value |
 | `INGEST_API_KEY` | _(empty)_ | Shared secret for the `X-Daalu-Key` webhook header (`openssl rand -hex 32`) |
 
 #### Datastores
@@ -409,7 +151,7 @@ fine for local use; the ones you'll touch are marked **★**.
 | `CELERY_BROKER_URL` | `redis://redis:6379/0` | Celery broker |
 | `CELERY_RESULT_BACKEND` | `redis://redis:6379/1` | Celery results |
 
-#### Inference (see [B6](#b6-pointing-daalu-at-your-inference))
+#### Inference (see [Part 2](#part-2-inference--gpu))
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `LLM_BASE_URL` | `http://host.docker.internal:11434/v1` | **★** Your OpenAI-compatible endpoint |
@@ -419,113 +161,205 @@ fine for local use; the ones you'll touch are marked **★**.
 | `ANTHROPIC_API_KEY` | _(empty)_ | Opt-in public provider (Anthropic). **Data leaves your network** if set |
 | `ANTHROPIC_MODEL` | _(empty)_ | Set to an Anthropic model id to enable the tier |
 
-#### Cluster & schedules
+#### Cluster & frontend
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `KUBECONFIG` | `/home/daalu/.kube/config` | Path (in-container) to the kubeconfig the kubectl tools use — see [B7](#b7-giving-the-agent-a-cluster-to-operate) |
+| `KUBECONFIG` | `/home/daalu/.kube/config` | In-container path to the kubeconfig the kubectl tools use (you can instead add a cluster from the UI — [Part 2B](#2b-production-a-gpu-kubernetes-cluster)) |
 | `DAILY_BRIEFING_CRON` | `30 6 * * *` | UTC cron for the daily AI infra briefing |
-
-#### Frontend
-| Variable | Default | Meaning |
-|----------|---------|---------|
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | **★** URL the browser uses to reach the API |
 
-> There are additional advanced settings in `src/daalu_automation/config.py`
-> (executor cadence, cloud price tracking, object storage). The table above is
-> everything a normal install needs.
+> Additional advanced settings live in `src/daalu_automation/config.py`. The tables
+> above are everything a normal install needs.
 
-### B6. Pointing Daalu at your inference
-
-Daalu speaks the OpenAI Chat Completions API, so anything that exposes it works.
-
-- **Ollama on the same host:** `LLM_BASE_URL=http://host.docker.internal:11434/v1`,
-  `LLM_API_KEY=ollama`, `LLM_MODEL=<a model you've pulled>` (e.g. `ollama pull qwen2.5:14b`).
-- **A vLLM server on your network:** `LLM_BASE_URL=http://<host>:<port>/v1`,
-  `LLM_MODEL=<the --served-model-name>`. This is what [Part A](#part-a-deploy-your-own-gpu-inference-server)
-  gives you.
-- **Anthropic (public, not sovereign):** set `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`.
-  Leave them empty to guarantee nothing leaves your network.
-
-Full detail and the routing logic: [03-llm-and-sovereignty.md](03-llm-and-sovereignty.md).
-
-### B7. Giving the agent a cluster to operate
-
-The Kubernetes tools use the kubeconfig at `KUBECONFIG`. With Docker Compose your
-`~/.kube` is mounted read-only into the `api`, `worker`, `agents`, and `executor`
-containers. Make sure the cluster API server is reachable **from inside the
-containers** (a `127.0.0.1` server address in your kubeconfig won't be — use the
-LAN IP or run with host networking).
-
-This is the cluster the agent *operates* (reads pods, proposes changes). It can be
-the same cluster you build in [Part A](#part-a-deploy-your-own-gpu-inference-server),
-or a completely separate one — they're independent.
-
-### B8. Wiring real sources
-
-In the UI under **Integrations**, add the systems Daalu should watch and act on:
-
-- **Prometheus / Alertmanager** — Daalu pulls firing alerts and emits events the
-  agent triages. (Or push to `POST /api/v1/events` with the `X-Daalu-Key` header.)
-- **AWS / GCP / Azure** — read-only credentials; the agent can pull instance
-  state, logs, and metrics during investigation.
-- **Linux / network devices** — SSH or NETCONF credentials; changes flow through
-  the approve-before-execute pipeline.
-
-See [05-tools.md](05-tools.md) for what the agent can do with each.
-
-### B9. Exposing Daalu to others (authentication)
+### 1.6 Exposing Daalu to others (authentication)
 
 This open-source build is **single-operator**: it ships no login screen, user
-management, or SSO (those live in the commercial hub). `LOCAL_NO_AUTH=true` runs
-it as one built-in operator. So if more than one person — or the open internet —
-can reach it, put authentication **in front of it**:
+management, or SSO. `LOCAL_NO_AUTH=true` runs it as one built-in operator. So if
+more than one person — or the open internet — can reach it, put authentication **in
+front of it**:
 
-1. Keep Daalu bound to localhost / a private network (don't publish port 8000/3000
-   directly).
-2. Put it behind an **authenticating reverse proxy** that handles login and only
-   forwards authenticated requests — e.g. [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/)
-   in front of your IdP, or even Caddy/nginx basic-auth for a small team.
+1. Keep Daalu bound to localhost / a private network (don't publish 8000/3000 to the world).
+2. Put it behind an **authenticating reverse proxy** (e.g. [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/) in front of your IdP, or Caddy/nginx basic-auth for a small team).
 3. Terminate **TLS** at that proxy — never serve Daalu plaintext over a network.
 
-In other words: Daalu trusts whoever can reach it, so control who can reach it.
+### 1.7 Running Daalu on Kubernetes
 
-> Built-in multi-user login, SSO/OIDC, RBAC, and multi-tenancy are intentionally
-> not part of this repo — they're the commercial hub.
-
-### B10. Running Daalu on Kubernetes
-
-For production, run the same image as Deployments (one per role: api, worker,
-beat, agents, executor) against a managed PostgreSQL and Redis, and run database
-migrations as an init container:
+For production, run the same image as Deployments (one per role: api, worker, beat,
+agents, executor) against a managed PostgreSQL and Redis, and run migrations as an
+init container:
 
 ```bash
 daalu migrate         # apply Alembic migrations (run once per upgrade)
 ```
 
-Minimum viable shape:
+Minimum viable shape: a `Deployment` per role using `image: daalu-agent` with the
+role's command; a `Secret` holding `DATABASE_URL`, `SECRET_KEY`, `LLM_*`; a
+`Service` + `Ingress` (with TLS) in front of `api` and `frontend`; a kubeconfig (or
+in-cluster ServiceAccount RBAC) so the kubectl tools can operate the target cluster;
+and `LOCAL_NO_AUTH=false` fronted per [1.6](#16-exposing-daalu-to-others-authentication).
 
-- A `Deployment` per role using `image: daalu-agent` with the role's command.
-- A `Secret` holding `DATABASE_URL`, `SECRET_KEY`, `LLM_*`, etc.
-- A `Service` + `Ingress` (with TLS) in front of the `api` and `frontend`.
-- A `ConfigMap`/`projected` kubeconfig (or in-cluster ServiceAccount RBAC) so the
-  kubectl tools can operate the target cluster.
-- `LOCAL_NO_AUTH=false` and auth fronted per [B9](#b9-exposing-daalu-to-others-authentication).
+> This is about running **Daalu** in Kubernetes. Running your **GPU model server**
+> in Kubernetes is [Part 2B](#2b-production-a-gpu-kubernetes-cluster).
 
-Helm/manifests are not bundled in this open-source repo; the Compose file is the
-canonical reference for the process topology and env wiring.
+### 1.8 Upgrades, backups, troubleshooting
 
-> Note: this is about running **Daalu** in Kubernetes. Running your **model
-> server** in Kubernetes is a different thing — that's [Part A](#part-a-deploy-your-own-gpu-inference-server).
+- **Upgrade:** pull, rebuild, restart, then migrate:
+  ```bash
+  git pull && docker compose build && docker compose up -d
+  docker compose exec api daalu migrate
+  ```
+  Verify: `docker compose ps` (all `Up`) and `curl http://localhost:8000/health`.
+- **Backup:** it's just Postgres — `pg_dump` the `daalu_agent` database. Redis is ephemeral.
+- **API won't come up:** `docker compose logs api` — usually a bad `DATABASE_URL` or an unreachable `LLM_BASE_URL`.
+- **Agent does nothing:** `docker compose logs -f agents`; confirm events exist and the model name is correct.
 
-### B11. Upgrades, backups, troubleshooting
+---
 
-- **Upgrade:** `git pull && docker compose build && docker compose up -d`, then
-  `docker compose exec api daalu migrate`.
-- **Backup:** it's just Postgres — `pg_dump` the `daalu_agent` database. Redis is
-  ephemeral (event bus only).
-- **API won't come up:** `docker compose logs api` — most commonly a bad
-  `DATABASE_URL` or an unreachable `LLM_BASE_URL`.
-- **Agent does nothing:** check `docker compose logs -f agents`; confirm events
-  exist (seed with `daalu seed-demo`) and your model name is correct.
-- **kubectl tools error:** verify the kubeconfig path/reachability from inside the
-  container ([B7](#b7-giving-the-agent-a-cluster-to-operate)).
+## Part 2: Inference & GPU
+
+Daalu speaks the OpenAI Chat Completions API, so **any** server that exposes it
+works. Pick the route that fits:
+
+- **[2A — Minimal laptop inference](#2a-minimal-laptop-inference-for-a-feel)** for a quick feel (CPU-friendly, no GPU).
+- **[2B — A production GPU Kubernetes cluster](#2b-production-a-gpu-kubernetes-cluster)** that Daalu operates *and* uses as its inference source.
+- **[2C — Point Daalu at an endpoint you already run](#2c-point-daalu-at-an-existing-endpoint).**
+
+### 2A. Minimal laptop inference (for a feel)
+
+Enough to see the agent reason on your own machine — no GPU required (it'll just be
+slow on CPU). Install Ollama and pull a small model:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh   # Linux/macOS
+ollama pull qwen2.5:7b                           # small; CPU-friendly. 14b if you have the RAM/GPU
+```
+
+**Verify Ollama is serving:**
+
+```bash
+ollama --version
+systemctl status ollama                          # Linux: "active (running)"
+curl http://localhost:11434/v1/models            # should list the model
+```
+
+Then set in Daalu's `.env` and restart (`docker compose up -d`):
+
+```ini
+LLM_BASE_URL=http://host.docker.internal:11434/v1
+LLM_API_KEY=ollama
+LLM_MODEL=qwen2.5:7b
+LLM_MODEL_CLASSIFIER=qwen2.5:7b
+```
+
+> **Daalu runs in Docker, so Ollama must listen on all interfaces** — its default
+> `127.0.0.1` bind is unreachable from containers via `host.docker.internal`. Fix:
+> ```bash
+> sudo mkdir -p /etc/systemd/system/ollama.service.d
+> printf '[Service]\nEnvironment="OLLAMA_HOST=0.0.0.0:11434"\n' | \
+>   sudo tee /etc/systemd/system/ollama.service.d/override.conf
+> sudo systemctl daemon-reload && sudo systemctl restart ollama   # after any pull finishes
+> ```
+> Verify: `sudo ss -ltnp 'sport = :11434'` shows `0.0.0.0:11434`.
+
+CPU inference is **slow** — fine for a first look, not real use. For production, use
+[2B](#2b-production-a-gpu-kubernetes-cluster).
+
+### 2B. Production: a GPU Kubernetes cluster
+
+The full flow for infra teams: stand up a **GPU Kubernetes cluster** with scripts,
+then **onboard it from the Daalu UI** — add the cluster to Managed Infra, register
+the GPU's vLLM endpoint in AI Factory as Daalu's inference source, and wire in
+telemetry. After this, Daalu both *operates* the cluster and *thinks* on it.
+
+**2B.1 — Prerequisites.** A **Linux machine with an NVIDIA GPU** (Ubuntu 22.04/24.04
+preferred), `root`/`sudo`, and outbound internet. No pre-installed GPU driver needed
+(the GPU Operator installs it; set `DRIVER=host` to reuse one you have).
+
+**2B.2 — Stand up the cluster (one script).** This installs k3s, the NVIDIA GPU
+Operator (driver + container toolkit + device plugin + DCGM GPU-metrics exporter),
+and **Prometheus + Loki** for telemetry.
+
+```bash
+sudo ./scripts/install-gpu-k3s.sh        # add TELEMETRY=false to skip Prometheus/Loki
+```
+
+Verify the node is Ready and the GPU is schedulable:
+
+```bash
+sudo cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+kubectl get nodes                                # Ready
+kubectl -n gpu-operator get pods                 # Running/Completed
+kubectl get nodes -o json | grep nvidia.com/gpu  # allocatable GPU present
+```
+
+The script prints the **Prometheus** (`:30090`) and **Loki** (`:30310`) NodePort
+URLs — keep them for 2B.4.
+
+**2B.3 — Serve a model on the GPU (one script).** Deploys vLLM serving an open model,
+exposing an OpenAI-compatible `/v1` API on a NodePort.
+
+```bash
+./scripts/serve-model.sh        # default Qwen2.5-7B-Instruct; MODEL=… SERVED_NAME=… to change
+```
+
+Verify it's serving (it prints the exact endpoint):
+
+```bash
+kubectl -n daalu rollout status deploy/vllm-model
+curl http://<node-ip>:30800/v1/models           # lists the served model
+```
+
+**2B.4 — Onboard from the Daalu UI.** With the cluster + model up, finish in the UI:
+
+1. **Managed infra → Clusters & observability** — add the cluster by pasting its
+   **kubeconfig** (`$HOME/.kube/config`). Daalu's kubectl tools can now read pods,
+   events, and propose changes through the approve-before-execute pipeline.
+2. **AI Factory** — onboard the GPU and set the vLLM endpoint
+   (`http://<node-ip>:30800/v1`) as Daalu's **inference source**. AI Factory then
+   surfaces GPU telemetry, diagnostics, AIPerf benchmarks, and reliability.
+3. **Managed infra → Observability** — add the **Prometheus** and **Loki** URLs from
+   2B.2 so the agent can query metrics and logs during triage.
+
+> Prefer config files? You can instead set `LLM_BASE_URL`/`LLM_MODEL` in `.env`
+> (see [2C](#2c-point-daalu-at-an-existing-endpoint)) and mount the kubeconfig at
+> `KUBECONFIG` — but the UI flow above is the recommended path.
+
+**Multi-node?** Add GPU workers by installing the k3s **agent** on each, pointed at
+the control node — the GPU Operator extends to new nodes automatically:
+
+```bash
+# on the control node: get the join token + IP
+sudo cat /var/lib/rancher/k3s/server/node-token
+hostname -I | awk '{print $1}'
+# on each GPU worker:
+curl -sfL https://get.k3s.io | K3S_URL=https://<control-ip>:6443 K3S_TOKEN=<token> sh -
+```
+
+### 2C. Point Daalu at an existing endpoint
+
+Already have an OpenAI-compatible server (Ollama, vLLM, a hosted gateway)? Just set
+these in `.env` and `docker compose up -d`:
+
+```ini
+LLM_BASE_URL=http://<host>:<port>/v1     # or host.docker.internal if same host
+LLM_API_KEY=<any-non-empty-for-local-servers>
+LLM_MODEL=<the served model name>
+LLM_MODEL_CLASSIFIER=<same or a cheaper model>
+```
+
+Check the endpoint is live before wiring it up: `curl http://<host>:<port>/v1/models`.
+Full detail and the routing logic: [03-llm-and-sovereignty.md](03-llm-and-sovereignty.md).
+
+---
+
+## Wiring real sources
+
+In the UI under **Integrations** and **Managed infra**, add the systems Daalu should
+watch and act on:
+
+- **Prometheus / Alertmanager** — Daalu pulls firing alerts and emits events the agent triages. (Or push to `POST /api/v1/events` with the `X-Daalu-Key` header.)
+- **AWS / GCP / Azure** — read-only credentials; the agent pulls instance state, logs, and metrics during investigation.
+- **Linux / network devices** — SSH or NETCONF credentials; changes flow through the approve-before-execute pipeline.
+
+See [05-tools.md](05-tools.md) for what the agent can do with each.

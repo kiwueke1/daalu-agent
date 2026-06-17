@@ -31,7 +31,7 @@ sudo ./scripts/install-gpu-k3s.sh   # 1. machine with NVIDIA GPU → k8s + GPU r
 `serve-model.sh` deploys [vLLM](https://docs.vllm.ai) serving an open model
 (Qwen2.5 by default — no Hugging Face token needed) onto your cluster and exposes
 an OpenAI-compatible `/v1` endpoint. See
-[Part A of 04-deployment.md](04-deployment.md#part-a-deploy-your-own-gpu-inference-server).
+[Part 2B of 04-deployment.md](04-deployment.md#2b-production-a-gpu-kubernetes-cluster).
 
 If you'd rather **bring your own** inference server, that's fully supported too —
 anything OpenAI-compatible works (vLLM, [Ollama](https://ollama.com), TGI,

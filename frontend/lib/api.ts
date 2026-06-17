@@ -1334,6 +1334,11 @@ export interface IntegrationConfig {
   // like `http://prometheus.monitoring.svc.cluster.local:9090`. Null
   // means: dial the URL directly from the hub (legacy / public URL).
   cluster_tunnel_id: string | null;
+  // Stamped by the integrations health-check beat task. `last_probed_at`
+  // is null for rows created since the last tick; `last_error` carries the
+  // adapter's failure reason when status === "error".
+  last_probed_at?: string | null;
+  last_error?: string | null;
 }
 
 export interface IntegrationDescriptor {
