@@ -1,0 +1,43 @@
+# Fast-firing alert for checkout-api. Lives in the `monitoring` namespace with
+# the `release: monitoring` label so the kube-prometheus-stack operator adopts
+# it (its default ruleSelector matches that label).
+#
+# It reads kube-state-metrics: when the checkout-api Deployment has 0 available
+# replicas for 1 minute, it fires `CheckoutApiDown`. (We key on availability,
+# not the CrashLoopBackOff waiting-reason, because that metric flaps as the pod
+# cycles running→OOMKilled→backoff and keeps resetting the `for` timer.
+# Availability is a stable 0 while the pod can't stay up, and returns to 1 the
+# moment it's healthy, so the alert both fires reliably and auto-resolves.)
+# The agent investigating it will find the pod's last terminated reason is
+# OOMKilled and the memory limit too small — the fix is to raise the memory.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: checkout-api-rules
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: checkout-api.rules
+      rules:
+        - alert: CheckoutApiDown
+          expr: kube_deployment_status_replicas_available{namespace="daalu-demo", deployment="checkout-api"} == 0
+          for: 1m
+          labels:
+            severity: warning
+            namespace: daalu-demo
+            deployment: checkout-api
+          annotations:
+            summary: "checkout-api is down (0 available replicas)"
+            description: >-
+              The checkout-api Deployment in namespace daalu-demo has 0 available
+              replicas — the service is down because its pod won't stay up.
+              Inspect the pod's last terminated reason, recent events, and the
+              container's resource limits to determine why it can't run, and
+              restore service.
+            runbook: >-
+              kubectl -n daalu-demo describe pod -l app=checkout-api;
+              kubectl -n daalu-demo get events -n daalu-demo --sort-by=.lastTimestamp | tail;
+              kubectl -n daalu-demo get deploy checkout-api -o
+              jsonpath='{.spec.template.spec.containers[0].resources}'

@@ -1,0 +1,75 @@
+# A realistic memory-bound microservice for Daalu to discover and fix.
+#
+# checkout-api keeps an in-memory working set (think product catalog + active
+# carts) and serves HTTP. It's sized to fit comfortably in its 256Mi limit when
+# healthy. The break (demo/break.sh) grows the working set past that limit, so
+# the container is OOMKilled and crash-loops — a natural, common production
+# failure whose correct fix is to give it more memory (patch the container's
+# memory request/limit), NOT to roll anything back.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: daalu-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout-api
+  namespace: daalu-demo
+  labels: { app: checkout-api }
+spec:
+  replicas: 1
+  # Recreate so a memory bump that OOMs takes the service genuinely DOWN
+  # (old pod is torn down before the new one starts) — a clearer signal than a
+  # stuck rolling update where the old pod keeps serving.
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: checkout-api }
+  template:
+    metadata:
+      labels: { app: checkout-api }
+    spec:
+      containers:
+        - name: app
+          image: python:3.12-alpine
+          # WORKINGSET_MB = how much memory the service holds resident. 150Mi
+          # fits the 256Mi limit (healthy). break.sh raises it past the limit.
+          env:
+            - name: WORKINGSET_MB
+              value: "150"
+          command: ["python3", "-u", "-c"]
+          args:
+            - |
+              import os, time
+              from http.server import BaseHTTPRequestHandler, HTTPServer
+              mb = int(os.environ.get("WORKINGSET_MB", "150"))
+              print(f"checkout-api: warming in-memory catalog + cart cache ({mb}MB)", flush=True)
+              # Hold the working set resident so the memory limit is actually enforced.
+              buf = bytearray(mb * 1024 * 1024)
+              for i in range(0, len(buf), 4096):
+                  buf[i] = 1
+              print("checkout-api: ready — serving checkout requests on :8080", flush=True)
+              class H(BaseHTTPRequestHandler):
+                  def do_GET(self):
+                      self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
+                  def log_message(self, *a): pass
+              HTTPServer(("0.0.0.0", 8080), H).serve_forever()
+          ports:
+            - { containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 25m, memory: 128Mi }
+            limits:   { cpu: 250m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout-api
+  namespace: daalu-demo
+spec:
+  selector: { app: checkout-api }
+  ports:
+    - { port: 8080, targetPort: 8080 }

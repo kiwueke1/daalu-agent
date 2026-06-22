@@ -1,0 +1,40 @@
+Daalu agent
+Copyright 2026 Daalu
+
+This product includes software developed by Daalu, licensed under the
+Apache License, Version 2.0 (the "License"); you may not use this software
+except in compliance with the License. You may obtain a copy of the License
+in the LICENSE file at the root of this repository, or at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+-------------------------------------------------------------------------------
+THIRD-PARTY COMPONENTS
+-------------------------------------------------------------------------------
+
+This repository redistributes, under the optional `components/nv-config-manager/`
+directory, vendored portions of:
+
+  NVIDIA Config Manager
+  Copyright 2024-2026 NVIDIA Corporation
+  Licensed under the Apache License, Version 2.0.
+  Source: https://github.com/NVIDIA/nv-config-manager
+
+  The original NVIDIA copyright notices and SPDX license identifiers are
+  preserved in the vendored source files. NVIDIA's own LICENSE and NOTICE
+  are reproduced at:
+      components/nv-config-manager/NVIDIA-LICENSE
+      components/nv-config-manager/NVIDIA-NOTICE
+  Modifications made when vendoring (e.g. excluded subtrees) are documented in
+  components/nv-config-manager/VENDORED.md.
+
+  Note: the vendored NV-CM Helm chart and installer default to container
+  images in an NVIDIA-internal registry namespace (nvcr.io/nvidian/cfa/...)
+  that external users cannot pull. Because the upstream project is Apache-2.0
+  and public, those images are intended to be built from source and mirrored
+  to your own registry — see components/nv-config-manager/README.md. No NGC,
+  NIM, or NVIDIA AI Enterprise entitlement is required.
+
+NVIDIA Config Manager integrates with Nautobot, an independent network
+source-of-truth project licensed under the Apache License, Version 2.0
+(https://github.com/nautobot/nautobot).
