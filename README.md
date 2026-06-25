@@ -43,7 +43,7 @@ everywhere; what differs is *where the model runs*. Pick a path:
 
 ### A) Laptop — macOS or Ubuntu (quick feel, CPU/Metal)
 Running on a laptop is just for a demo and to get a feel for the product. For real use, we
-recommend one or more servers or workstations, each with one or more NVIDIA GPUs.
+recommend one or more servers or workstations, and a total of atleast one NVIDIA GPU. 
 ```bash
 git clone https://github.com/kiwueke1/daalu-agent.git daalu && cd daalu
 ./scripts/install-inference.sh    # installs Ollama + a small open model, prints the LLM_* lines
